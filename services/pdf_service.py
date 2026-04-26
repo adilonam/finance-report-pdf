@@ -1,6 +1,7 @@
 import hashlib
 import io
 import os
+import subprocess
 import tempfile
 import sys
 from pathlib import Path
@@ -126,10 +127,36 @@ def html_to_pdf_bytes(html_content: str, base_dir: str = "template") -> bytes:
     return pdf_buffer.getvalue()
 
 
+def _install_playwright_chromium() -> None:
+    subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def _render_pdf_with_browser(html_file_path: Path) -> bytes:
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        try:
+            page = browser.new_page()
+            page.goto(html_file_path.as_uri(), wait_until="networkidle")
+            return page.pdf(
+                format="A4",
+                print_background=True,
+                prefer_css_page_size=True,
+            )
+        finally:
+            browser.close()
+
+
 def browser_html_to_pdf_bytes(html_content: str, base_dir: str = "template") -> bytes:
     try:
         from playwright.sync_api import Error as PlaywrightError
-        from playwright.sync_api import sync_playwright
     except ImportError as exc:
         raise ValueError(
             "Browser PDF export requires Playwright. Install dependencies, then run: "
@@ -149,21 +176,20 @@ def browser_html_to_pdf_bytes(html_content: str, base_dir: str = "template") -> 
         with temp_file:
             temp_file.write(html_content)
 
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch()
-            page = browser.new_page()
-            page.goto(Path(temp_file.name).as_uri(), wait_until="networkidle")
-            pdf_bytes = page.pdf(
-                format="A4",
-                print_background=True,
-                prefer_css_page_size=True,
-            )
-            browser.close()
-            return pdf_bytes
+        html_file_path = Path(temp_file.name)
+        try:
+            return _render_pdf_with_browser(html_file_path)
+        except PlaywrightError:
+            _install_playwright_chromium()
+            return _render_pdf_with_browser(html_file_path)
     except PlaywrightError as exc:
         raise ValueError(
-            "Failed to generate PDF with Chromium. If this is the first run, execute: "
-            "playwright install chromium"
+            "Failed to generate PDF with Chromium after installing the browser runtime."
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(
+            "Failed to install Chromium for Playwright. On Streamlit Cloud, make sure "
+            "packages.txt is committed with the required Linux browser libraries."
         ) from exc
     finally:
         try:
