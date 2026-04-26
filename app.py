@@ -23,10 +23,10 @@ except FileNotFoundError:
     st.error("Template file not found at template/report_template.html")
     st.stop()
 
-st.subheader("HTML Preview")
-st.code(rendered_html, language="html")
+st.subheader("Report Actions")
+generate_pdf, preview_pdf = st.columns(2)
 
-if st.button("Generate PDF"):
+if generate_pdf.button("Generate PDF"):
     try:
         pdf_bytes = html_to_pdf_bytes(rendered_html)
         st.success("PDF generated successfully.")
@@ -39,7 +39,7 @@ if st.button("Generate PDF"):
     except ValueError as error:
         st.error(str(error))
 
-if st.button("Preview PDF"):
+if preview_pdf.button("Preview PDF"):
     try:
         pdf_bytes = html_to_pdf_bytes(rendered_html)
         pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
@@ -51,3 +51,6 @@ if st.button("Preview PDF"):
         st.markdown(pdf_viewer, unsafe_allow_html=True)
     except ValueError as error:
         st.error(str(error))
+
+with st.expander("HTML Code", expanded=False):
+    st.code(rendered_html, language="html")

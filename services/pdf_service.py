@@ -40,8 +40,22 @@ def _register_fonts() -> None:
     if _FONT_REGISTERED:
         return
 
-    regular_font_path = os.path.join(os.getcwd(), "template", "fonts", "SFArabic.ttf")
-    bold_font_path = os.path.join(os.getcwd(), "template", "fonts", "SFArabic.ttf")
+    regular_font_path = os.path.join(
+        os.getcwd(),
+        "template",
+        "fonts",
+        "Noto_Kufi_Arabic",
+        "static",
+        "NotoKufiArabic-Regular.ttf",
+    )
+    bold_font_path = os.path.join(
+        os.getcwd(),
+        "template",
+        "fonts",
+        "Noto_Kufi_Arabic",
+        "static",
+        "NotoKufiArabic-Bold.ttf",
+    )
     symbols_font_path = os.path.join(os.getcwd(), "template", "fonts", "ArialUnicode.ttf")
     if os.path.exists(regular_font_path):
         pdfmetrics.registerFont(TTFont("ReportArabic", regular_font_path))
