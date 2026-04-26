@@ -1,5 +1,6 @@
 streamlit
 jinja2
-xhtml2pdf
+xhtml2pdf; python_version < "3.13"
 arabic-reshaper
 python-bidi
+playwright

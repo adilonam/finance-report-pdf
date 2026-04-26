@@ -3,7 +3,7 @@ import os
 
 import streamlit as st
 from services.mock_api_service import get_qse_daily_report_data
-from services.pdf_service import html_to_pdf_bytes
+from services.pdf_service import browser_html_to_pdf_bytes
 from services.template_service import render_html_template
 
 
@@ -30,7 +30,6 @@ template_path = "template/report_template.html"
 
 try:
     preview_html = render_html_template(template_path, report_data, shape_arabic=False)
-    pdf_html = render_html_template(template_path, report_data)
 except FileNotFoundError:
     st.error("Template file not found at template/report_template.html")
     st.stop()
@@ -38,9 +37,15 @@ except FileNotFoundError:
 with st.expander("HTML Code", expanded=False):
     st.code(preview_html, language="html")
 
-if st.button("Preview PDF"):
+if st.button("Generate PDF with Browser"):
     try:
-        pdf_bytes = html_to_pdf_bytes(pdf_html, base_dir=os.path.dirname(template_path))
-        show_pdf_preview(pdf_bytes, "PDF Preview")
+        pdf_bytes = browser_html_to_pdf_bytes(preview_html, base_dir=os.path.dirname(template_path))
+        show_pdf_preview(pdf_bytes, "Browser PDF Preview")
+        st.download_button(
+            "Download Browser PDF",
+            data=pdf_bytes,
+            file_name="qse-daily-report-browser.pdf",
+            mime="application/pdf",
+        )
     except ValueError as error:
         st.error(str(error))

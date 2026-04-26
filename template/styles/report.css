@@ -1,17 +1,17 @@
 @font-face {
   font-family: ReportArabic;
-  src: url("template/fonts/Noto_Kufi_Arabic/static/NotoKufiArabic-Regular.ttf");
+  src: url("../fonts/Noto_Kufi_Arabic/static/NotoKufiArabic-Regular.ttf");
 }
 
 @font-face {
   font-family: ReportArabic;
-  src: url("template/fonts/Noto_Kufi_Arabic/static/NotoKufiArabic-Bold.ttf");
+  src: url("../fonts/Noto_Kufi_Arabic/static/NotoKufiArabic-Bold.ttf");
   font-weight: bold;
 }
 
 @font-face {
   font-family: ReportSymbols;
-  src: url("template/fonts/ArialUnicode.ttf");
+  src: url("../fonts/ArialUnicode.ttf");
 }
 
 @page {

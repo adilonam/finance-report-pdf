@@ -1,10 +1,9 @@
 import hashlib
 import io
 import os
+import tempfile
 import sys
-
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+from pathlib import Path
 
 
 _ORIGINAL_MD5 = hashlib.md5
@@ -30,15 +29,13 @@ def _apply_md5_compatibility_patch() -> None:
                 pass
 
 
-_apply_md5_compatibility_patch()
-
-from xhtml2pdf import pisa  # noqa: E402  imported after md5 patch is in place
-
-
 def _register_fonts() -> None:
     global _FONT_REGISTERED
     if _FONT_REGISTERED:
         return
+
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
 
     regular_font_path = os.path.join(
         os.getcwd(),
@@ -110,7 +107,13 @@ def _link_callback(uri: str, _rel: str) -> str:
 
 def html_to_pdf_bytes(html_content: str, base_dir: str = "template") -> bytes:
     _apply_md5_compatibility_patch()
-    _register_fonts()
+    try:
+        from xhtml2pdf import pisa
+
+        _register_fonts()
+    except ImportError as exc:
+        raise ValueError("HTML PDF export requires xhtml2pdf and reportlab.") from exc
+
     absolute_base_dir = os.path.abspath(base_dir)
     pdf_buffer = io.BytesIO()
     result = pisa.CreatePDF(
@@ -121,3 +124,49 @@ def html_to_pdf_bytes(html_content: str, base_dir: str = "template") -> bytes:
     if result.err:
         raise ValueError("Failed to generate PDF from HTML.")
     return pdf_buffer.getvalue()
+
+
+def browser_html_to_pdf_bytes(html_content: str, base_dir: str = "template") -> bytes:
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise ValueError(
+            "Browser PDF export requires Playwright. Install dependencies, then run: "
+            "playwright install chromium"
+        ) from exc
+
+    absolute_base_dir = Path(base_dir).resolve()
+    temp_file = tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        suffix=".html",
+        prefix="browser-report-",
+        dir=absolute_base_dir,
+        delete=False,
+    )
+    try:
+        with temp_file:
+            temp_file.write(html_content)
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            page.goto(Path(temp_file.name).as_uri(), wait_until="networkidle")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                prefer_css_page_size=True,
+            )
+            browser.close()
+            return pdf_bytes
+    except PlaywrightError as exc:
+        raise ValueError(
+            "Failed to generate PDF with Chromium. If this is the first run, execute: "
+            "playwright install chromium"
+        ) from exc
+    finally:
+        try:
+            os.unlink(temp_file.name)
+        except FileNotFoundError:
+            pass
