@@ -9,17 +9,16 @@ from services.template_service import render_html_template
 
 st.set_page_config(page_title="HTML Report to PDF", layout="centered")
 st.title("QSE Daily Report (Mock API)")
-st.caption("HTML report source and PDF preview.")
+st.caption("HTML report source and browser PDF export.")
 
 
-def show_pdf_preview(pdf_bytes: bytes, title: str) -> None:
+def show_pdf_open_link(pdf_bytes: bytes) -> None:
     pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
-    pdf_viewer = (
-        f'<iframe src="data:application/pdf;base64,{pdf_b64}" '
-        'width="100%" height="900" type="application/pdf"></iframe>'
+    st.markdown(
+        f'<a href="data:application/pdf;base64,{pdf_b64}" target="_blank" '
+        'rel="noopener noreferrer">Open PDF in new tab</a>',
+        unsafe_allow_html=True,
     )
-    st.subheader(title)
-    st.markdown(pdf_viewer, unsafe_allow_html=True)
 
 if st.button("Refresh mocked API data"):
     st.rerun()
@@ -40,7 +39,8 @@ with st.expander("HTML Code", expanded=False):
 if st.button("Generate PDF with Browser"):
     try:
         pdf_bytes = browser_html_to_pdf_bytes(preview_html, base_dir=os.path.dirname(template_path))
-        show_pdf_preview(pdf_bytes, "Browser PDF Preview")
+        st.success("PDF generated.")
+        show_pdf_open_link(pdf_bytes)
         st.download_button(
             "Download Browser PDF",
             data=pdf_bytes,
