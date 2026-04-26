@@ -33,8 +33,10 @@ def _shape_arabic_html(html: str) -> str:
     )
 
 
-def render_html_template(template_path: str, context: dict) -> str:
+def render_html_template(template_path: str, context: dict, shape_arabic: bool = True) -> str:
     with open(template_path, "r", encoding="utf-8") as file:
         template = Template(file.read())
     rendered_html = template.render(**context)
-    return _shape_arabic_html(rendered_html)
+    if shape_arabic:
+        return _shape_arabic_html(rendered_html)
+    return rendered_html

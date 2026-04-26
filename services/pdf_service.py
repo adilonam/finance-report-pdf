@@ -74,22 +74,49 @@ def _register_fonts() -> None:
     _FONT_REGISTERED = True
 
 
+def _resolve_local_uri(uri: str, base_dir: str) -> str:
+    if os.path.isabs(uri):
+        return uri if os.path.exists(uri) else uri
+
+    project_root = os.getcwd()
+    root_relative_uri = uri.lstrip("/")
+    base_relative_uri = root_relative_uri[2:] if root_relative_uri.startswith("./") else root_relative_uri
+    candidates = [
+        os.path.join(base_dir, base_relative_uri),
+        os.path.join(project_root, root_relative_uri),
+        os.path.join(project_root, base_relative_uri),
+    ]
+
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return uri
+
+
+def _make_link_callback(base_dir: str):
+    def _link_callback(uri: str, _rel: str) -> str:
+        if uri.startswith(("http://", "https://", "data:")):
+            return uri
+        return _resolve_local_uri(uri, base_dir)
+
+    return _link_callback
+
+
 def _link_callback(uri: str, _rel: str) -> str:
     if uri.startswith(("http://", "https://", "data:")):
         return uri
-    project_root = os.getcwd()
-    candidate = os.path.join(project_root, uri.lstrip("/"))
-    return candidate if os.path.exists(candidate) else uri
+    return _resolve_local_uri(uri, os.getcwd())
 
 
-def html_to_pdf_bytes(html_content: str) -> bytes:
+def html_to_pdf_bytes(html_content: str, base_dir: str = "template") -> bytes:
     _apply_md5_compatibility_patch()
     _register_fonts()
+    absolute_base_dir = os.path.abspath(base_dir)
     pdf_buffer = io.BytesIO()
     result = pisa.CreatePDF(
         src=html_content,
         dest=pdf_buffer,
-        link_callback=_link_callback,
+        link_callback=_make_link_callback(absolute_base_dir),
     )
     if result.err:
         raise ValueError("Failed to generate PDF from HTML.")

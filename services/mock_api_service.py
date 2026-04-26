@@ -31,7 +31,7 @@ def get_qse_daily_report_data() -> dict:
 
     return {
         "meta": {
-            "report_title_ar": "التقرير اليومي لبورصة قطر",
+            "report_title_ar": "التقرير اليومي<br>لبورصة قطر",
             "report_title_en": "Qatar Exchange Daily Market Report",
             "report_date": "16 أبريل 2026",
             "day_name": "الخميس",
@@ -39,6 +39,7 @@ def get_qse_daily_report_data() -> dict:
             "month_year": "أبريل 2026",
             "session_time": "9:30 ص - 1:15 م",
             "source": "واجهات تجريبية لبيانات السوق والإفصاحات والأخبار",
+       
         },
         "market_summary": {
             "index_name": "مؤشر بورصة قطر",

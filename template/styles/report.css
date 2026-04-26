@@ -82,9 +82,9 @@ h1, h2, h3, p { margin: 0; }
   border-right: 1px solid #53617a;
 }
 
-.title-ar { font-size: 14px; font-weight: bold; }
-.title-en { margin-top: 4px; color: #aeb8ca; font-size: 6.5px; direction: ltr; }
-.session { color: #aeb8ca; margin-top: 3px; font-size: 6.5px; }
+.title-ar { font-size: 20px; font-weight: bold; direction: rtl; }
+.title-en { margin-top: 0px; color: #aeb8ca; font-size: 6px; direction: ltr; }
+.session { color: #aeb8ca; margin-top: 3px; font-size: 6px; }
 
 .logo-cell {
   text-align: center;
