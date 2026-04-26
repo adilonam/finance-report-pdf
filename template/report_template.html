@@ -1,91 +1,517 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ report_title }}</title>
+    <title>{{ meta.report_title_ar }}</title>
     <style>
+      @font-face {
+        font-family: ReportArabic;
+        src: url("template/fonts/Tahoma.ttf");
+      }
+      @font-face {
+        font-family: ReportArabic;
+        src: url("template/fonts/Tahoma-Bold.ttf");
+        font-weight: bold;
+      }
+      @font-face {
+        font-family: ReportSymbols;
+        src: url("template/fonts/ArialUnicode.ttf");
+      }
+      @page {
+        size: A4;
+        margin: 8mm 8mm 10mm;
+      }
+      * { box-sizing: border-box; }
       body {
-        font-family: Arial, sans-serif;
-        color: #222;
-        margin: 24px;
+        direction: ltr;
+        unicode-bidi: normal;
+        font-family: ReportArabic, Tahoma, Arial, sans-serif;
+        font-size: 8.5px;
+        color: #202a3c;
+        background: #fff;
+        line-height: 1.28;
       }
-
-      .header {
-        border-bottom: 2px solid #1f4e79;
-        padding-bottom: 10px;
-        margin-bottom: 20px;
+      h1, h2, h3, p { margin: 0; }
+      .ltr { direction: ltr; unicode-bidi: normal; }
+      .num { direction: ltr; unicode-bidi: normal; font-family: ReportArabic, Arial, sans-serif; }
+      .symbol { font-family: ReportSymbols, Arial, sans-serif; }
+      .muted { color: #7a8495; }
+      .page-box {
+        width: 100%;
       }
-
-      h1 {
-        color: #1f4e79;
-        margin: 0;
-      }
-
-      .meta {
-        margin-top: 6px;
-        color: #555;
-        font-size: 14px;
-      }
-
-      .section-title {
-        margin-top: 24px;
-        margin-bottom: 8px;
-        color: #1f4e79;
-        font-size: 18px;
-      }
-
-      .kpi-grid {
+      .top-mini {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 10px;
+        margin-bottom: 5px;
+        font-size: 7px;
+      }
+      .top-mini td { color: #111827; }
+      .top-mini .center { text-align: center; }
+      .top-mini .left { text-align: left; direction: ltr; }
+
+      .header-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 6px;
+        direction: ltr;
+      }
+      .date-card {
+        background: #2e3d5a;
+        color: #ffffff;
+        width: 105px;
+        text-align: center;
+        vertical-align: middle;
+        border-radius: 6px 0 0 6px;
+        padding: 12px 6px;
+      }
+      .date-main { font-size: 11px; font-weight: bold; }
+      .date-sub { margin-top: 7px; color: #aeb8ca; font-size: 7px; }
+      .title-card {
+        width: 210px;
+        background: #2e3d5a;
+        color: #ffffff;
+        vertical-align: middle;
+        padding: 12px 14px;
+        border-right: 1px solid #53617a;
+      }
+      .title-ar { font-size: 16px; font-weight: bold; }
+      .title-en { margin-top: 7px; color: #aeb8ca; font-size: 7px; direction: ltr; }
+      .session { color: #aeb8ca; margin-top: 4px; font-size: 7px; }
+      .logo-cell {
+        text-align: center;
+        vertical-align: middle;
+        background: #ffffff;
+        border: 1px solid #e1e6ef;
+        padding: 8px;
+      }
+      .logo-cell img { width: 235px; }
+
+      .kpi-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 7px;
+        direction: rtl;
+      }
+      .kpi-table td {
+        width: 25%;
+        border: 1px solid #d9e0ea;
+        border-right: 4px solid #2e3d5a;
+        padding: 9px 10px;
+        text-align: right;
+        background: #ffffff;
+      }
+      .kpi-label { color: #606d80; font-weight: bold; }
+      .kpi-value { margin-top: 6px; color: #202a3c; font-size: 16px; font-weight: bold; }
+      .up { color: #2d7f44; font-weight: bold; }
+      .down { color: #b73a34; font-weight: bold; }
+      .kpi-delta { margin-top: 5px; font-size: 8px; }
+
+      .section-title-row {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 7px 0 5px;
+        direction: ltr;
+      }
+      .section-title-row td { vertical-align: middle; height: 22px; }
+      .section-pill {
+        background: #eef3f8;
+        color: #2e3d5a;
+        padding: 5px 10px;
+        font-size: 8px;
+        font-weight: bold;
+        width: 92px;
+        text-align: center;
+      }
+      .section-line { border-top: 1px solid #d9e0ea; height: 22px; }
+      .section-title {
+        color: #202a3c;
+        font-size: 13px;
+        font-weight: bold;
+        text-align: right;
+        border-right: 5px solid #2e3d5a;
+        padding-right: 8px;
+        padding-top: 3px;
+        white-space: nowrap;
+        width: 275px;
       }
 
-      .kpi-grid th,
-      .kpi-grid td {
-        border: 1px solid #ccc;
-        padding: 10px;
-        text-align: left;
+      .chart-box {
+        border: 1px solid #d9e0ea;
+        background: #fbfcfe;
+        height: 88px;
+        margin-bottom: 8px;
+        padding: 10px 12px 5px;
+      }
+      .chart-line {
+        border-top: 3px solid #24314d;
+        height: 26px;
+        margin-top: 26px;
+        background: #f1f3f7;
+      }
+      .chart-axis {
+        width: 100%;
+        border-collapse: collapse;
+        color: #8a93a2;
+        font-size: 7px;
+        direction: ltr;
+      }
+      .chart-axis td { text-align: center; }
+
+      .movers-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 8px;
+        direction: rtl;
+      }
+      .movers-cell { width: 33.33%; vertical-align: top; }
+      .movers-gap { width: 4px; }
+      .mover-header {
+        color: #fff;
+        font-size: 12px;
+        font-weight: bold;
+        padding: 6px 10px;
+        text-align: right;
+      }
+      .mover-icon {
+        float: left;
+        background: rgba(255,255,255,0.22);
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+      .green-header { background: #41a35a; }
+      .red-header { background: #ce4442; }
+      .gold-header { background: #b99741; }
+
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .data-table th,
+      .data-table td {
+        border: 1px solid #e3e8f0;
+        padding: 4px 6px;
+        font-size: 8px;
+        text-align: right;
+      }
+      .data-table th {
+        background: #f7f9fc;
+        color: #5f6b7d;
+        font-weight: bold;
+      }
+      .strong { color: #25314a; font-weight: bold; }
+
+      .sector-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #d9e0ea;
+        direction: rtl;
+      }
+      .sector-table td {
+        padding: 4px 8px;
+        border-bottom: 1px solid #edf0f5;
+        vertical-align: middle;
+      }
+      .sector-name { width: 24%; color: #202a3c; font-weight: bold; }
+      .sector-bars { width: 62%; }
+      .sector-change { width: 14%; text-align: left; direction: ltr; font-weight: bold; }
+      .track { width: 100%; height: 14px; background: #eef2f6; border-radius: 3px; }
+      .fill-up { height: 14px; background: #4d9661; border-radius: 3px; }
+      .fill-down { height: 14px; background: #bf5147; border-radius: 3px; }
+
+      .share-card {
+        border: 1px solid #d9e0ea;
+        margin-bottom: 8px;
+      }
+      .share-head {
+        width: 100%;
+        border-collapse: collapse;
+        direction: ltr;
+        background: #f7f9fc;
+        color: #5f6b7d;
+        font-weight: bold;
+      }
+      .share-head td {
+        padding: 5px 8px;
+        border-bottom: 1px solid #d9e0ea;
+      }
+      .share-row {
+        width: 100%;
+        border-collapse: collapse;
+        border-bottom: 1px solid #edf0f5;
+        direction: ltr;
+      }
+      .share-row td { padding: 6px 8px; vertical-align: middle; }
+      .share-nationality { width: 15%; font-size: 13px; font-weight: bold; color: #202a3c; }
+      .share-bars { width: 65%; direction: ltr; }
+      .share-net { width: 20%; text-align: center; font-weight: bold; direction: ltr; }
+      .bar-line { width: 100%; border-collapse: collapse; direction: ltr; margin: 1px 0; }
+      .bar-value { width: 54px; direction: ltr; font-weight: bold; }
+      .bar-value.sell { color: #b73a34; }
+      .bar-value.buy { color: #2d7f44; }
+      .bar-track { background: #f1f3f7; height: 13px; }
+      .bar-red { height: 13px; background: #bf5147; border-radius: 3px; }
+      .bar-green { height: 13px; background: #4d9661; border-radius: 3px; }
+      .net-badge-up { background: #3d9056; color: #fff; padding: 6px 8px; border-radius: 3px; }
+      .net-badge-down { background: #bf5147; color: #fff; padding: 6px 8px; border-radius: 3px; }
+      .net-badge-flat { background: #3d9056; color: #fff; padding: 6px 8px; border-radius: 3px; }
+
+      .major-table th.buy { background: #e9f6ef; color: #257345; text-align: center; }
+      .major-table th.sell { background: #faeeee; color: #a8312d; text-align: center; }
+      .major-table td.buy { color: #257345; font-weight: bold; text-align: center; }
+      .major-table td.sell { color: #a8312d; font-weight: bold; text-align: center; }
+      .major-table { direction: rtl; }
+      .major-table .major-company { background: #f7f9fc; color: #202a3c; font-size: 11px; }
+      .ticker-badge {
+        background: #25314a;
+        color: #fff;
+        padding: 7px 13px;
+        border-radius: 4px;
+        display: inline-block;
+        direction: ltr;
+        font-weight: bold;
       }
 
-      .kpi-grid th {
-        background: #f3f7fb;
+      .earnings-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #d9e0ea;
+        direction: rtl;
       }
+      .earnings-table td {
+        width: 20%;
+        height: 105px;
+        text-align: center;
+        vertical-align: bottom;
+        padding: 8px 6px;
+      }
+      .earnings-bar {
+        height: 70px;
+        background: #1f304f;
+        border-radius: 4px 4px 0 0;
+        color: #fff;
+        padding-top: 36px;
+        font-weight: bold;
+      }
+      .earnings-latest { background: #8b1939; }
+      .earnings-growth { color: #4cae62; font-weight: bold; margin-bottom: 3px; direction: ltr; }
+      .earnings-label { color: #6d7685; margin-top: 5px; direction: ltr; }
+
+      .events-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #d9e0ea;
+        direction: rtl;
+      }
+      .events-table td { border-bottom: 1px solid #edf0f5; padding: 6px 8px; vertical-align: middle; }
+      .event-date {
+        width: 54px;
+        background: #1f304f;
+        color: #fff;
+        text-align: center;
+        border-radius: 4px;
+        font-weight: bold;
+      }
+      .event-day { font-size: 13px; }
+      .event-month { font-size: 8px; }
+      .event-title { font-size: 11px; color: #202a3c; font-weight: bold; }
+      .event-sub { color: #717c8e; font-size: 9px; margin-top: 2px; }
+
+      .news-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #d9e0ea;
+        direction: rtl;
+      }
+      .news-table td { padding: 8px 7px; border-bottom: 1px solid #edf0f5; vertical-align: top; }
+      .bullet { width: 18px; font-size: 14px; text-align: center; }
+      .bullet.green { color: #3d9056; }
+      .bullet.red { color: #c03d39; }
+      .bullet.blue { color: #69738d; }
+      .news-text { font-size: 11px; color: #202a3c; font-weight: bold; }
+      .news-tag { color: #7a8495; font-size: 8px; margin-top: 3px; }
+      .footer-disclaimer {
+        margin-top: 8px;
+        background: #2e3d5a;
+        color: #c6cfdd;
+        text-align: center;
+        padding: 9px;
+        font-size: 8px;
+        border-radius: 3px;
+      }
+      .page-break { page-break-before: always; }
     </style>
   </head>
   <body>
-    <div class="header">
-      <h1>{{ report_title }}</h1>
-      <div class="meta">Date: {{ report_date }}</div>
-      <div class="meta">Company: {{ company_name }}</div>
-      <div class="meta">Prepared by: {{ author_name }}</div>
+    <div class="page-box">
+      <table class="top-mini">
+        <tr>
+          <td class="left">4/24/26, 8:46 PM</td>
+          <td class="center">التقرير اليومي — بورصة قطر — {{ meta.report_date }}</td>
+          <td></td>
+        </tr>
+      </table>
+
+      <table class="header-table">
+        <tr>
+          <td class="date-card">
+            <div class="date-main">{{ meta.day_num }} {{ meta.month_year.split(' ')[0] }}</div>
+            <div class="date-sub">{{ meta.day_name }}</div>
+          </td>
+          <td class="title-card">
+            <div class="title-ar">{{ meta.report_title_ar }}</div>
+            <div class="title-en">{{ meta.report_title_en }}</div>
+            <div class="session">جلسة التداول: {{ meta.session_time }}</div>
+          </td>
+          <td class="logo-cell">
+            <img src="{{ logo_path }}" />
+          </td>
+        </tr>
+      </table>
+
+      <table class="kpi-table">
+        <tr>
+          <td>
+            <div class="kpi-label">عدد الصفقات</div>
+            <div class="kpi-value ltr">{{ market_summary.trades_count }}</div>
+            <div class="kpi-delta up num"><span class="symbol">▲</span> {{ market_summary.trades_count_change }}</div>
+          </td>
+          <td>
+            <div class="kpi-label">حجم التداول (سهم)</div>
+            <div class="kpi-value num">{{ market_summary.traded_volume }}</div>
+            <div class="kpi-delta up num"><span class="symbol">▲</span> {{ market_summary.traded_volume_change }}</div>
+          </td>
+          <td>
+            <div class="kpi-label">قيمة التداول (ر.ق)</div>
+            <div class="kpi-value num">{{ market_summary.traded_value }}</div>
+            <div class="kpi-delta down num"><span class="symbol">▼</span> {{ market_summary.traded_value_change }}</div>
+          </td>
+          <td>
+            <div class="kpi-label">{{ market_summary.index_name }}</div>
+            <div class="kpi-value ltr">{{ market_summary.index_value }}</div>
+            <div class="kpi-delta up num"><span class="symbol">▲</span> {{ market_summary.index_change_points }} ({{ market_summary.index_change_percent }})</div>
+          </td>
+        </tr>
+      </table>
+
+      <table class="section-title-row">
+        <tr>
+          <td class="section-pill" width="92">{{ meta.session_time }}</td>
+          <td class="section-line"></td>
+          <td class="section-title" width="275">حركة مؤشر بورصة قطر — جلسة اليوم</td>
+        </tr>
+      </table>
+      <div class="chart-box">
+        <div class="chart-line">&nbsp;</div>
+        <table class="chart-axis"><tr><td>10:45</td><td>11:00</td><td>11:15</td><td>11:30</td><td>11:45</td><td>12:00</td><td>12:15</td><td>12:30</td><td>12:45</td><td>13:00</td><td>13:15</td></tr></table>
+      </div>
+
+      <table class="movers-table">
+        <tr>
+          <td class="movers-cell">
+            <div class="mover-header gold-header"><span class="mover-icon symbol">★</span>الأكثر نشاطاً</div>
+            <table class="data-table">
+              <tr><th>اسم الشركة</th><th>القيمة</th><th>الحجم</th></tr>
+              {% for r in most_active %}<tr><td>{{ r.name }}</td><td class="strong num">{{ r.value }}</td><td class="num">{{ r.volume }}</td></tr>{% endfor %}
+            </table>
+          </td>
+          <td class="movers-gap"></td>
+          <td class="movers-cell">
+            <div class="mover-header red-header"><span class="mover-icon symbol">▼</span>أعلى انخفاضاً</div>
+            <table class="data-table">
+              <tr><th>اسم الشركة</th><th>القيمة</th><th>التغير</th></tr>
+              {% for r in top_losers %}<tr><td>{{ r.name }}</td><td class="strong num">{{ r.value }}</td><td class="down num">{{ r.change }}</td></tr>{% endfor %}
+            </table>
+          </td>
+          <td class="movers-gap"></td>
+          <td class="movers-cell">
+            <div class="mover-header green-header"><span class="mover-icon symbol">▲</span>أعلى ارتفاعاً</div>
+            <table class="data-table">
+              <tr><th>اسم الشركة</th><th>القيمة</th><th>التغير</th></tr>
+              {% for r in top_gainers %}<tr><td>{{ r.name }}</td><td class="strong num">{{ r.value }}</td><td class="up num">{{ r.change }}</td></tr>{% endfor %}
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <table class="section-title-row">
+        <tr><td class="section-pill" width="92">{{ sector_performance|length }} قطاعات</td><td class="section-line"></td><td class="section-title" width="275">أداء القطاعات</td></tr>
+      </table>
+      <table class="sector-table">
+        {% for s in sector_performance %}
+        <tr>
+          <td class="sector-change num {% if s.is_up %}up{% else %}down{% endif %}">{{ s.change }}</td>
+          <td class="sector-bars">
+            <div class="track"><div class="{% if s.is_up %}fill-up{% else %}fill-down{% endif %}" style="width: {{ s.bar_width_pct }}%">&nbsp;</div></div>
+          </td>
+          <td class="sector-name">{{ s.sector }}</td>
+        </tr>
+        {% endfor %}
+      </table>
     </div>
 
-    <div class="section-title">Executive Summary</div>
-    <p>{{ summary_text }}</p>
+    <div class="page-break"></div>
+    <table class="top-mini"><tr><td class="left">4/24/26, 8:46 PM</td><td class="center">التقرير اليومي — بورصة قطر — {{ meta.report_date }}</td><td></td></tr></table>
 
-    <div class="section-title">Key Metrics</div>
-    <table class="kpi-grid">
-      <thead>
+    <table class="section-title-row"><tr><td class="section-pill" width="92">مرتب من الأعلى شراء</td><td class="section-line"></td><td class="section-title" width="275">نشاط المساهمين — أفراد</td></tr></table>
+    <div class="share-card">
+      <table class="share-head"><tr><td style="width: 20%; text-align: center;">صافي</td><td style="width: 65%; text-align: center;">بيع / شراء</td><td style="width: 15%; text-align: right;">الجنسية</td></tr></table>
+      {% for r in shareholder_activity_individuals %}
+      <table class="share-row">
         <tr>
-          <th>Metric</th>
-          <th>Value</th>
+          <td class="share-net"><div class="num {% if '+' in r.net %}net-badge-up{% elif '-' in r.net %}net-badge-down{% else %}net-badge-flat{% endif %}">{{ r.net }}</div></td>
+          <td class="share-bars">
+            <table class="bar-line"><tr><td class="bar-value sell num">{{ r.sell }}</td><td class="bar-track"><div class="bar-red" style="width: {% if loop.index == 1 %}88{% elif loop.index == 2 %}28{% elif loop.index == 3 %}12{% else %}5{% endif %}%"></div></td></tr></table>
+            <table class="bar-line"><tr><td class="bar-value buy num">{{ r.buy }}</td><td class="bar-track"><div class="bar-green" style="width: {% if loop.index == 1 %}95{% elif loop.index == 2 %}28{% elif loop.index == 3 %}20{% else %}4{% endif %}%"></div></td></tr></table>
+          </td>
+          <td class="share-nationality">{{ r.nationality }}<br><span class="down">بيع</span><br><span class="up">شراء</span></td>
         </tr>
-      </thead>
-      <tbody>
+      </table>
+      {% endfor %}
+    </div>
+
+    <table class="section-title-row"><tr><td class="section-pill" width="92">مرتب من الأعلى شراء</td><td class="section-line"></td><td class="section-title" width="275">نشاط المساهمين — مؤسسات</td></tr></table>
+    <div class="share-card">
+      <table class="share-head"><tr><td style="width: 20%; text-align: center;">صافي</td><td style="width: 65%; text-align: center;">بيع / شراء</td><td style="width: 15%; text-align: right;">الجنسية</td></tr></table>
+      {% for r in shareholder_activity_institutions %}
+      <table class="share-row">
         <tr>
-          <td>Revenue</td>
-          <td>{{ revenue }}</td>
+          <td class="share-net"><div class="num {% if '+' in r.net %}net-badge-up{% elif '-' in r.net %}net-badge-down{% else %}net-badge-flat{% endif %}">{{ r.net }}</div></td>
+          <td class="share-bars">
+            <table class="bar-line"><tr><td class="bar-value sell num">{{ r.sell }}</td><td class="bar-track"><div class="bar-red" style="width: {% if loop.index == 1 %}90{% elif loop.index == 2 %}92{% elif loop.index == 3 %}33{% else %}4{% endif %}%"></div></td></tr></table>
+            <table class="bar-line"><tr><td class="bar-value buy num">{{ r.buy }}</td><td class="bar-track"><div class="bar-green" style="width: {% if loop.index == 1 %}94{% elif loop.index == 2 %}86{% elif loop.index == 3 %}18{% else %}2{% endif %}%"></div></td></tr></table>
+          </td>
+          <td class="share-nationality">{{ r.nationality }}<br><span class="down">بيع</span><br><span class="up">شراء</span></td>
         </tr>
-        <tr>
-          <td>Expenses</td>
-          <td>{{ expenses }}</td>
-        </tr>
-        <tr>
-          <td>Net Profit</td>
-          <td>{{ net_profit }}</td>
-        </tr>
-      </tbody>
+      </table>
+      {% endfor %}
+    </div>
+
+    <div class="page-break"></div>
+    <table class="top-mini"><tr><td class="left">4/24/26, 8:46 PM</td><td class="center">التقرير اليومي — بورصة قطر — {{ meta.report_date }}</td><td></td></tr></table>
+
+    <table class="section-title-row"><tr><td class="section-pill" width="92">صفقات بارزة</td><td class="section-line"></td><td class="section-title" width="275">تعاملات المساهمين بأكثر من 1%</td></tr></table>
+    <table class="data-table major-table">
+      <tr><th colspan="5" class="major-company"><span class="ticker-badge">QGMD</span> القطرية الألمانية للمستلزمات الطبية</th></tr>
+      <tr><th class="sell">نسبة صافي المباعة</th><th class="sell">عدد الأوراق المباعة (صافي)</th><th class="buy">نسبة صافي المشتراة</th><th class="buy">عدد الأوراق المشتراة (صافي)</th><th>اسم المساهم</th></tr>
+      {% for r in major_trades %}
+      <tr><td class="sell num">{{ r.sell_pct }}</td><td class="sell num">{{ r.sell_qty }}</td><td class="buy num">{{ r.buy_pct }}</td><td class="buy num">{{ r.buy_qty }}</td><td>{{ r.investor }}</td></tr>
+      {% endfor %}
     </table>
+
+    <table class="section-title-row"><tr><td class="section-pill" width="92">مليون ر.ق</td><td class="section-line"></td><td class="section-title" width="275">{{ earnings_highlight.company }}</td></tr></table>
+    <table class="earnings-table"><tr>{% for p in earnings_highlight.points|reverse %}<td>{% if p.growth %}<div class="earnings-growth num">{{ p.growth }}</div>{% endif %}<div class="earnings-bar num {% if loop.first %}earnings-latest{% endif %}">{{ p.value }}</div><div class="earnings-label num">{{ p.label }}</div></td>{% endfor %}</tr></table>
+
+    <table class="section-title-row"><tr><td class="section-pill" width="92">أبريل — مايو 2026</td><td class="section-line"></td><td class="section-title" width="275">أحداث الشركات القادمة</td></tr></table>
+    <table class="events-table">
+      {% for e in upcoming_events %}<tr><td><div class="event-title">{{ e.title }}</div><div class="event-sub">{{ e.subtitle }}</div></td><td class="event-date"><div class="event-day num">{{ e.day }}</div><div class="event-month">{{ e.month }}</div></td></tr>{% endfor %}
+    </table>
+
+    <div class="page-break"></div>
+    <table class="top-mini"><tr><td class="left">4/24/26, 8:46 PM</td><td class="center">التقرير اليومي — بورصة قطر — {{ meta.report_date }}</td><td></td></tr></table>
+    <table class="section-title-row"><tr><td class="section-pill" width="92">{{ meta.report_date }}</td><td class="section-line"></td><td class="section-title" width="275">أبرز الأخبار والتطورات</td></tr></table>
+    <table class="news-table">
+      {% for n in news_highlights %}<tr><td><div class="news-text">{{ n.text }}</div><div class="news-tag">{{ n.tag }}</div></td><td class="bullet {{ n.tone }}">●</td></tr>{% endfor %}
+    </table>
+    <div class="footer-disclaimer">{{ disclaimer }}</div>
   </body>
 </html>
