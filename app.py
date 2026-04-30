@@ -1,7 +1,8 @@
+from datetime import date
 from pathlib import Path
 
 import streamlit as st
-from services.page1_service import run_update_jobs
+from services.api_data_service import run_update_jobs
 from services.report_data_service import get_qse_daily_report_data
 from services.pdf_service import browser_html_to_pdf_bytes
 from services.template_service import render_html_template
@@ -13,11 +14,12 @@ st.title("QSE Daily Report")
 st.caption("HTML report source and browser PDF export.")
 
 TEMPLATE_PATH = Path("template/report_template.html")
+selected_report_date = st.date_input("Report date", value=date.today())
 
 if st.button("Run Job"):
     try:
-        with st.spinner("Updating local database..."):
-            result = run_update_jobs()
+        with st.spinner(f"Updating local database for {selected_report_date.isoformat()}..."):
+            result = run_update_jobs(selected_report_date)
         st.session_state["last_job_result"] = result
     except Exception as error:
         st.error(f"Job failed: {error}")
@@ -31,7 +33,10 @@ if "last_job_result" in st.session_state:
         )
 
 try:
-    preview_html = render_html_template(str(TEMPLATE_PATH), get_qse_daily_report_data())
+    preview_html = render_html_template(
+        str(TEMPLATE_PATH),
+        get_qse_daily_report_data(selected_report_date),
+    )
 except FileNotFoundError:
     st.error("Template file not found at template/report_template.html")
     st.stop()

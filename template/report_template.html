@@ -52,6 +52,9 @@
       <p class="market-note">{{ market_summary.commentary }}</p>
 
       <h2 class="section-title movers-title">أبرز الأسهم – Top Movers</h2>
+      {% if not has_top_movers %}
+      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+      {% else %}
       <div class="movers-grid">
         <div class="mover-card active">
           <h3>الأكثر نشاطاً <span>●</span></h3>
@@ -66,10 +69,14 @@
           <table><tr><th>الرمز</th><th>السعر</th><th>التغير</th></tr>{% for r in top_gainers %}<tr><td class="ticker">{{ r.symbol }}</td><td class="num">{{ r.price }}</td><td class="num up">{{ r.change }}</td></tr>{% endfor %}</table>
         </div>
       </div>
+      {% endif %}
     </section>
 
     <section class="report-page page-break">
       <h2 class="section-title">أداء القطاعات – Sector Performance</h2>
+      {% if not has_sector_performance %}
+      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+      {% else %}
       <div class="sector-list">
         {% for s in sector_performance %}
         <div class="sector-row">
@@ -79,8 +86,12 @@
         </div>
         {% endfor %}
       </div>
+      {% endif %}
 
       <h2 class="section-title flow-title">تدفقات المستثمرين – Investor Flow</h2>
+      {% if not has_investor_flow %}
+      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+      {% else %}
       {% for group in investor_flow %}
       <div class="flow-card">
         <h3>{{ group.title }}</h3>
@@ -99,16 +110,21 @@
         </table>
       </div>
       {% endfor %}
+      {% endif %}
     </section>
 
     <section class="report-page page-break">
       <h2 class="section-title">تداولات فوق 1% من إجمالي السوق</h2>
+      {% if not has_major_trades %}
+      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+      {% else %}
       <table class="trades-table">
         <tr><th>الشركة</th><th>نوع المستثمر</th><th>النوع</th><th>الكمية</th><th>متوسط السعر</th><th>القيمة</th><th>% من السوق</th></tr>
         {% for r in major_trades %}
         <tr><td class="ticker">{{ r.symbol }}</td><td>{{ r.investor_type }}</td><td><span class="trade-type {{ r.type_class }}">{{ r.trade_type }}</span></td><td class="num">{{ r.quantity }}</td><td class="num">{{ r.avg_price }}</td><td class="num">{{ r.value }}</td><td class="num {% if r.type_class == 'buy' %}up{% else %}down{% endif %}">{{ r.market_pct }}</td></tr>
         {% endfor %}
       </table>
+      {% endif %}
 
       <h2 class="section-title earnings-title">{{ earnings_highlight.company }}</h2>
       <div class="earnings-chart">
@@ -127,11 +143,15 @@
 
     <section class="report-page page-break">
       <h2 class="section-title">الفعاليات والمواعيد القادمة</h2>
+      {% if not has_upcoming_events %}
+      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+      {% else %}
       <div class="event-list">
         {% for e in upcoming_events %}
         <div class="event-item"><span class="event-date">{{ e.day }} {{ e.month }}</span><strong>{{ e.title }}</strong><small>{{ e.subtitle }}</small></div>
         {% endfor %}
       </div>
+      {% endif %}
 
       <h2 class="section-title news-title">أبرز الأخبار</h2>
       <div class="news-list">
