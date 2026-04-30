@@ -1,34 +1,37 @@
-import base64
-import os
+from pathlib import Path
 
 import streamlit as st
-from services.mock_api_service import get_qse_daily_report_data
+from services.page1_service import run_update_jobs
+from services.report_data_service import get_qse_daily_report_data
 from services.pdf_service import browser_html_to_pdf_bytes
 from services.template_service import render_html_template
+from ui.pdf_controls import show_pdf_actions
 
 
 st.set_page_config(page_title="HTML Report to PDF", layout="centered")
-st.title("QSE Daily Report (Mock API)")
+st.title("QSE Daily Report")
 st.caption("HTML report source and browser PDF export.")
 
+TEMPLATE_PATH = Path("template/report_template.html")
 
-def show_pdf_open_link(pdf_bytes: bytes) -> None:
-    pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
-    st.markdown(
-        f'<a href="data:application/pdf;base64,{pdf_b64}" target="_blank" '
-        'rel="noopener noreferrer">Open PDF in new tab</a>',
-        unsafe_allow_html=True,
-    )
+if st.button("Run Job"):
+    try:
+        with st.spinner("Updating local database..."):
+            result = run_update_jobs()
+        st.session_state["last_job_result"] = result
+    except Exception as error:
+        st.error(f"Job failed: {error}")
 
-if st.button("Refresh mocked API data"):
-    st.rerun()
-
-report_data = get_qse_daily_report_data()
-
-template_path = "template/report_template.html"
+if "last_job_result" in st.session_state:
+    result = st.session_state["last_job_result"]
+    with st.expander("Job logs", expanded=False):
+        st.code(
+            "\n".join(result["log_lines"]),
+            language="text",
+        )
 
 try:
-    preview_html = render_html_template(template_path, report_data, shape_arabic=False)
+    preview_html = render_html_template(str(TEMPLATE_PATH), get_qse_daily_report_data())
 except FileNotFoundError:
     st.error("Template file not found at template/report_template.html")
     st.stop()
@@ -38,14 +41,8 @@ with st.expander("HTML Code", expanded=False):
 
 if st.button("Generate PDF with Browser"):
     try:
-        pdf_bytes = browser_html_to_pdf_bytes(preview_html, base_dir=os.path.dirname(template_path))
+        pdf_bytes = browser_html_to_pdf_bytes(preview_html, base_dir=str(TEMPLATE_PATH.parent))
         st.success("PDF generated.")
-        show_pdf_open_link(pdf_bytes)
-        st.download_button(
-            "Download Browser PDF",
-            data=pdf_bytes,
-            file_name="qse-daily-report-browser.pdf",
-            mime="application/pdf",
-        )
+        show_pdf_actions(pdf_bytes, file_name="qse-daily-report-browser.pdf")
     except ValueError as error:
         st.error(str(error))

@@ -30,6 +30,11 @@ ENV/
 # Streamlit
 .streamlit/secrets.toml
 
+# Generated reports and local previews
+temp/
+database/
+*.pdf
+
 # macOS
 .DS_Store
 .AppleDouble
