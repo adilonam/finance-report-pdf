@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+import urllib.parse
+import xml.etree.ElementTree as ET
 from datetime import date, datetime
 from pathlib import Path
 
@@ -15,6 +18,19 @@ INDICES_SUMMARY_URL_TEMPLATE = "https://www.qe.com.qa/wp/trading_report_data/{ye
 INVESTOR_ACTIVITY_URL_TEMPLATE = "https://www.qe.com.qa/wp/trading_report_data/{year}/{month}/{day}/InvestorActivity.txt"
 MAJOR_ACTIVITY_URL_TEMPLATE = "https://www.qe.com.qa/wp/trading_report_data/{year}/{month}/{day}/MajorActivity.txt"
 EVENTS_URL = "https://www.qe.com.qa/wp/mw_app/mw.php"
+MORE_INFORMATION_SEARCH_URL = "https://www.qe.com.qa/ar/moreinformationsearch"
+COMPANY_MORE_INFORMATION_SEARCH_URL = (
+    "https://www.qe.com.qa/ar/companymoreinformationsearch"
+)
+OUTPUT_XML_JS_PATTERN = re.compile(
+    r"var\s+outputXML\s*=\s*'([^']*)'",
+    re.IGNORECASE | re.DOTALL,
+)
+OUTPUT_XML_JS_PATTERN_DQ = re.compile(
+    r'var\s+outputXML\s*=\s*"([^"]*)"',
+    re.IGNORECASE | re.DOTALL,
+)
+NEWS_HIGHLIGHTS_LIMIT = 4
 DATABASE_DIR = Path("database")
 DATABASE_PATH = DATABASE_DIR / "finance_report.sqlite3"
 TOP5_JSON_PREFIX = "for(;;);"
@@ -26,6 +42,8 @@ SECTOR_PERFORMANCE_TABLE = "sector_performance"
 INVESTOR_ACTIVITY_TABLE = "investor_activity"
 MAJOR_ACTIVITY_TABLE = "major_activity"
 UPCOMING_EVENTS_TABLE = "upcoming_events"
+EXCHANGE_NEWS_TABLE = "exchange_news"
+COMPANY_NEWS_TABLE = "company_news"
 ALL_TABLES = [
     MARKET_INDEX_TABLE,
     QE20_TIME_LEVEL_TABLE,
@@ -34,6 +52,8 @@ ALL_TABLES = [
     INVESTOR_ACTIVITY_TABLE,
     MAJOR_ACTIVITY_TABLE,
     UPCOMING_EVENTS_TABLE,
+    EXCHANGE_NEWS_TABLE,
+    COMPANY_NEWS_TABLE,
 ]
 SECTOR_INDEX_NAMES = {
     "QBNK": "البنوك والخدمات المالية",
@@ -160,6 +180,245 @@ def fetch_upcoming_events(
     response.raise_for_status()
     payload = response.json()
     return current_date.isoformat(), _rows_from_payload(payload)
+
+
+def _qse_news_page_headers() -> dict[str, str]:
+    return {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
+    }
+
+
+def _fetch_qse_news_from_page(url: str) -> list[dict]:
+    try:
+        response = requests.get(url, timeout=30, headers=_qse_news_page_headers())
+    except requests.RequestException:
+        return []
+
+    if response.status_code != 200:
+        return []
+
+    return _parse_qse_news_output_xml_page(response.text)
+
+
+def fetch_exchange_news() -> list[dict]:
+    return _fetch_qse_news_from_page(MORE_INFORMATION_SEARCH_URL)
+
+
+def fetch_company_news() -> list[dict]:
+    return _fetch_qse_news_from_page(COMPANY_MORE_INFORMATION_SEARCH_URL)
+
+
+def _parse_qse_news_output_xml_page(html: str) -> list[dict]:
+    raw = _extract_output_xml_js_value(html)
+    if not raw:
+        return []
+
+    xml_text = urllib.parse.unquote_plus(raw)
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return []
+
+    err = root.find("ServletErrorStatus")
+    if err is not None and (err.text or "").strip() != "0":
+        return []
+
+    return _news_rows_from_output_xml(root)
+
+
+def _extract_output_xml_js_value(html: str) -> str:
+    match = OUTPUT_XML_JS_PATTERN.search(html)
+    if match:
+        return match.group(1)
+
+    match = OUTPUT_XML_JS_PATTERN_DQ.search(html)
+    if match:
+        return match.group(1)
+
+    return ""
+
+
+def _news_rows_from_output_xml(root: ET.Element) -> list[dict]:
+    rows: list[dict] = []
+    for news_el in root.findall(".//News"):
+        detail_id = (news_el.findtext("InformationTypeDetailID") or "").strip()
+        headline = (news_el.findtext("Headline") or "").strip()
+        if not detail_id or not headline:
+            continue
+
+        rows.append(
+            {
+                "detail_id": detail_id,
+                "headline": headline,
+                "summary": (news_el.findtext("Summary") or "").strip(),
+                "publish_date": (news_el.findtext("PublishDate") or "").strip(),
+            }
+        )
+
+    return rows
+
+
+def save_exchange_news(rows: list[dict]) -> int:
+    clean_rows = [
+        (
+            str(row["detail_id"]),
+            str(row["headline"]),
+            str(row.get("summary", "")),
+            str(row.get("publish_date", "")),
+            index,
+        )
+        for index, row in enumerate(rows)
+        if isinstance(row, dict) and row.get("detail_id") and row.get("headline")
+    ]
+
+    with _connect() as connection:
+        connection.execute(f"DELETE FROM {EXCHANGE_NEWS_TABLE}")
+        connection.executemany(
+            f"""
+            INSERT INTO {EXCHANGE_NEWS_TABLE} (
+                detail_id,
+                headline,
+                summary,
+                publish_date,
+                sort_order
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            clean_rows,
+        )
+    return len(clean_rows)
+
+
+def save_company_news(rows: list[dict]) -> int:
+    clean_rows = [
+        (
+            str(row["detail_id"]),
+            str(row["headline"]),
+            str(row.get("summary", "")),
+            str(row.get("publish_date", "")),
+            index,
+        )
+        for index, row in enumerate(rows)
+        if isinstance(row, dict) and row.get("detail_id") and row.get("headline")
+    ]
+
+    with _connect() as connection:
+        connection.execute(f"DELETE FROM {COMPANY_NEWS_TABLE}")
+        connection.executemany(
+            f"""
+            INSERT INTO {COMPANY_NEWS_TABLE} (
+                detail_id,
+                headline,
+                summary,
+                publish_date,
+                sort_order
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            clean_rows,
+        )
+    return len(clean_rows)
+
+
+def load_news_highlights(limit: int = NEWS_HIGHLIGHTS_LIMIT) -> list[dict]:
+    return _load_news_rows_for_template(
+        EXCHANGE_NEWS_TABLE,
+        "أخبار البورصة",
+        "QSE",
+        limit,
+    )
+
+
+def load_company_news_highlights(limit: int = NEWS_HIGHLIGHTS_LIMIT) -> list[dict]:
+    return _load_news_rows_for_template(
+        COMPANY_NEWS_TABLE,
+        "أخبار الشركات",
+        "شركات",
+        limit,
+    )
+
+
+def _load_news_rows_for_template(
+    table_name: str,
+    label_ar: str,
+    tag_brand: str,
+    limit: int,
+) -> list[dict]:
+    if not DATABASE_PATH.exists():
+        return []
+
+    with _connect() as connection:
+        cursor = connection.execute(
+            f"""
+            SELECT headline, summary, publish_date
+            FROM {table_name}
+            ORDER BY sort_order ASC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        db_rows = cursor.fetchall()
+
+    return [
+        {
+            "label": label_ar,
+            "text": headline,
+            "tag": _format_news_highlight_tag(summary, publish_date, tag_brand),
+            "tone": "gray",
+        }
+        for headline, summary, publish_date in db_rows
+    ]
+
+
+def _format_news_highlight_tag(
+    summary: str,
+    publish_date_iso: str,
+    brand: str,
+) -> str:
+    date_part = _format_arabic_datetime_line(publish_date_iso)
+    if summary and len(summary) <= 120:
+        return f"{summary} · {date_part}" if date_part else summary
+    if date_part:
+        return f"{brand} · {date_part}"
+    return brand
+
+
+def _format_arabic_datetime_line(iso_value: str) -> str:
+    if not iso_value:
+        return ""
+
+    cleaned = iso_value.strip().replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(cleaned)
+    except ValueError:
+        return iso_value
+
+    month_ar = _arabic_month_name(dt.month)
+    return f"{dt.day} {month_ar} {dt.year}"
+
+
+def _arabic_month_name(month: int) -> str:
+    names = {
+        1: "يناير",
+        2: "فبراير",
+        3: "مارس",
+        4: "أبريل",
+        5: "مايو",
+        6: "يونيو",
+        7: "يوليو",
+        8: "أغسطس",
+        9: "سبتمبر",
+        10: "أكتوبر",
+        11: "نوفمبر",
+        12: "ديسمبر",
+    }
+    return names.get(month, str(month))
 
 
 def _dated_feed_url(url_template: str, as_of_date: date) -> str:
@@ -292,6 +551,28 @@ def _connect() -> sqlite3.Connection:
             display_flag TEXT NOT NULL,
             sort_order INTEGER NOT NULL,
             PRIMARY KEY (event_date, news_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS exchange_news (
+            detail_id TEXT NOT NULL PRIMARY KEY,
+            headline TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            publish_date TEXT NOT NULL,
+            sort_order INTEGER NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS company_news (
+            detail_id TEXT NOT NULL PRIMARY KEY,
+            headline TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            publish_date TEXT NOT NULL,
+            sort_order INTEGER NOT NULL
         )
         """
     )
@@ -630,6 +911,12 @@ def run_update_jobs(as_of_date: date | None = None) -> dict:
     events_date, event_rows = fetch_upcoming_events(report_date)
     events_count = save_upcoming_events(events_date, event_rows)
 
+    exchange_news_rows = fetch_exchange_news()
+    exchange_news_count = save_exchange_news(exchange_news_rows)
+
+    company_news_rows = fetch_company_news()
+    company_news_count = save_company_news(company_news_rows)
+
     result = {
         "requested_report_date": report_date.isoformat(),
         "market_index_rows": market_index_count,
@@ -656,6 +943,10 @@ def run_update_jobs(as_of_date: date | None = None) -> dict:
         "upcoming_events_rows": events_count,
         "upcoming_events_date": events_date,
         "upcoming_events_table": UPCOMING_EVENTS_TABLE,
+        "exchange_news_rows": exchange_news_count,
+        "exchange_news_table": EXCHANGE_NEWS_TABLE,
+        "company_news_rows": company_news_count,
+        "company_news_table": COMPANY_NEWS_TABLE,
         "database_path": str(DATABASE_PATH),
     }
     result["log_lines"] = _build_run_job_log_lines(result)
@@ -673,7 +964,7 @@ def _build_run_job_log_lines(result: dict) -> list[str]:
         "Run Job completed successfully.",
         f"Database: {result['database_path']}",
         f"Requested report date: {result['requested_report_date']}",
-        "APIs processed: 7",
+        "APIs processed: 9",
         "",
         "[1] Market Index API - Index.txt",
         f"Data date: {result['market_index_date'] or 'N/A'}",
@@ -711,6 +1002,14 @@ def _build_run_job_log_lines(result: dict) -> list[str]:
         f"Data date: {result['upcoming_events_date'] or 'N/A'}",
         f"Rows added: {result['upcoming_events_rows']}",
         f"Table affected: {result['upcoming_events_table']}",
+        "",
+        "[8] Exchange News - moreinformationsearch (outputXML)",
+        f"Rows added: {result['exchange_news_rows']}",
+        f"Table affected: {result['exchange_news_table']}",
+        "",
+        "[9] Company News - companymoreinformationsearch (outputXML)",
+        f"Rows added: {result['company_news_rows']}",
+        f"Table affected: {result['company_news_table']}",
     ]
 
 

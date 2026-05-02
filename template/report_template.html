@@ -119,9 +119,9 @@
       <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
       {% else %}
       <table class="trades-table">
-        <tr><th>الشركة</th><th>نوع المستثمر</th><th>النوع</th><th>الكمية</th><th>متوسط السعر</th><th>القيمة</th><th>% من السوق</th></tr>
+        <tr><th>الشركة</th><th>نوع المستثمر</th><th>النوع</th><th>الكمية</th><th>% من السوق</th></tr>
         {% for r in major_trades %}
-        <tr><td class="ticker">{{ r.symbol }}</td><td>{{ r.investor_type }}</td><td><span class="trade-type {{ r.type_class }}">{{ r.trade_type }}</span></td><td class="num">{{ r.quantity }}</td><td class="num">{{ r.avg_price }}</td><td class="num">{{ r.value }}</td><td class="num {% if r.type_class == 'buy' %}up{% else %}down{% endif %}">{{ r.market_pct }}</td></tr>
+        <tr><td class="ticker">{{ r.symbol }}</td><td>{{ r.investor_type }}</td><td><span class="trade-type {{ r.type_class }}">{{ r.trade_type }}</span></td><td class="num">{{ r.quantity }}</td><td class="num {% if r.type_class == 'buy' %}up{% else %}down{% endif %}">{{ r.market_pct }}</td></tr>
         {% endfor %}
       </table>
       {% endif %}
@@ -163,11 +163,15 @@
       {% endif %}
 
       <h2 class="section-title news-title">أبرز الأخبار</h2>
+      {% if not has_news_highlights %}
+      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+      {% else %}
       <div class="news-list">
         {% for n in news_highlights %}
         <div class="news-item"><span class="news-pill {{ n.tone }}">{{ n.label }}</span><strong>{{ n.text }}</strong><small>{{ n.tag }}</small></div>
         {% endfor %}
       </div>
+      {% endif %}
 
       <footer>{{ disclaimer }}</footer>
     </section>

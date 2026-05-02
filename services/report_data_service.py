@@ -4,10 +4,12 @@ from datetime import date
 
 from services.api_data_service import (
     build_market_chart,
+    load_company_news_highlights,
     load_investor_flow,
     load_major_trades,
     load_market_last_update,
     load_market_summary,
+    load_news_highlights,
     load_sector_performance,
     load_top_movers,
     load_upcoming_events,
@@ -51,6 +53,7 @@ def get_qse_daily_report_data(report_date: date | None = None) -> dict:
     investor_flow = load_investor_flow(report_date)
     major_trades = load_major_trades(report_date)
     upcoming_events = load_upcoming_events(report_date)
+    news_highlights = load_news_highlights() + load_company_news_highlights()
 
     return {
         "meta": {
@@ -88,12 +91,8 @@ def get_qse_daily_report_data(report_date: date | None = None) -> dict:
         },
         "upcoming_events": upcoming_events,
         "has_upcoming_events": bool(upcoming_events),
-        "news_highlights": [
-            {"label": "إيجابي", "text": "صندوق الثروة السيادي يرفع حصته في القطاع المصرفي بمقدار 1.2 مليار ريال", "tag": "QSE Disclosure · 15 أبريل 2026", "tone": "green"},
-            {"label": "إيجابي", "text": "أوريدو تعلن شراكة استراتيجية لتوسيع خدمات الجيل الخامس إقليمياً", "tag": "Ooredoo Press Release · 15 أبريل 2026", "tone": "green"},
-            {"label": "سلبي", "text": "تراجع مؤشرات السيولة في العقار مع تثبيت أسعار الفائدة من بنك قطر المركزي", "tag": "QCB Statement · Bloomberg · 14 أبريل 2026", "tone": "red"},
-            {"label": "محايد", "text": "QSE تستشير السوق حول تحديث قواعد ملكية المستثمرين الأجانب", "tag": "Qatar Stock Exchange · 13 أبريل 2026", "tone": "gray"},
-        ],
+        "news_highlights": news_highlights,
+        "has_news_highlights": bool(news_highlights),
         "disclaimer": "شركة قطر للأوراق المالية · Qatar Securities Co. (P.Q.S.C) · للأغراض المعلوماتية فقط · لا تُعد هذه التقرير توصية استثمارية · 15 أبريل 2026",
     }
 

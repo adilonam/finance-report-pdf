@@ -5,7 +5,7 @@
 - [ ] أداء القطاعات r to l 
 - [ ] correct bottom تدفقات المستثمرين order them m after number 
 - [ ]  ق %1 من إجمالي السوق symbol to labell 
-- [ ] rmv from 1% two not engaged col 
+- [x] rmv from 1% two not engaged col 
 - [ ] 1% join them in company as title like qe
 - [ ] تداولات المطلعين next section
 - [ ] ifssah to be manually
