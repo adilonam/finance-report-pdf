@@ -26,6 +26,15 @@ SECTOR_PERFORMANCE_TABLE = "sector_performance"
 INVESTOR_ACTIVITY_TABLE = "investor_activity"
 MAJOR_ACTIVITY_TABLE = "major_activity"
 UPCOMING_EVENTS_TABLE = "upcoming_events"
+ALL_TABLES = [
+    MARKET_INDEX_TABLE,
+    QE20_TIME_LEVEL_TABLE,
+    TOP_MOVERS_TABLE,
+    SECTOR_PERFORMANCE_TABLE,
+    INVESTOR_ACTIVITY_TABLE,
+    MAJOR_ACTIVITY_TABLE,
+    UPCOMING_EVENTS_TABLE,
+]
 SECTOR_INDEX_NAMES = {
     "QBNK": "البنوك والخدمات المالية",
     "QCON": "الخدمات والسلع الاستهلاكية",
@@ -585,6 +594,7 @@ def save_upcoming_events(report_date: str, rows: list[dict]) -> int:
 
 
 def run_update_jobs(as_of_date: date | None = None) -> dict:
+    clear_all_tables()
     market_index_rows = fetch_market_index()
     market_index_count = save_market_index(market_index_rows)
     market_index_date = _get_market_index_date(market_index_rows)
@@ -650,6 +660,12 @@ def run_update_jobs(as_of_date: date | None = None) -> dict:
     }
     result["log_lines"] = _build_run_job_log_lines(result)
     return result
+
+
+def clear_all_tables() -> None:
+    with _connect() as connection:
+        for table_name in ALL_TABLES:
+            connection.execute(f"DELETE FROM {table_name}")
 
 
 def _build_run_job_log_lines(result: dict) -> list[str]:
@@ -1035,6 +1051,9 @@ def load_upcoming_events(as_of_date: date | None = None) -> list[dict]:
             "month": _format_arabic_month(event_date),
             "title": news_title,
             "subtitle": _build_event_subtitle(news_time, news_comp, news_theme, comp_code),
+            "time": news_time,
+            "company": _build_event_company(news_comp, comp_code),
+            "detail": news_title or news_theme,
         }
         for event_date, news_time, news_title, news_theme, comp_code, news_comp in rows
     ]
@@ -1167,8 +1186,12 @@ def _build_event_subtitle(
     news_theme: str,
     comp_code: str,
 ) -> str:
-    company = f"{news_comp} ({comp_code})" if news_comp and comp_code else news_comp or comp_code
+    company = _build_event_company(news_comp, comp_code)
     return " · ".join(part for part in [news_time, company, news_theme] if part)
+
+
+def _build_event_company(news_comp: str, comp_code: str) -> str:
+    return f"{news_comp} ({comp_code})" if news_comp and comp_code else news_comp or comp_code
 
 
 def _bar_width(value: float, max_value: float) -> int:

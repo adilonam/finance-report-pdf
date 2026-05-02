@@ -148,7 +148,16 @@
       {% else %}
       <div class="event-list">
         {% for e in upcoming_events %}
-        <div class="event-item"><span class="event-date">{{ e.day }} {{ e.month }}</span><strong>{{ e.title }}</strong><small>{{ e.subtitle }}</small></div>
+        <div class="event-item">
+          <div class="event-date-block">
+            <span class="event-date">{{ e.day }} {{ e.month }}</span>
+            <span class="event-time num">{{ e.time }}</span>
+          </div>
+          <div class="event-line">
+            <strong>{{ e.company }}</strong>
+            <small>{{ e.detail }}</small>
+          </div>
+        </div>
         {% endfor %}
       </div>
       {% endif %}

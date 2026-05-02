@@ -288,8 +288,10 @@ table {
 
 .mover-card h3 {
   color: #ffffff;
+  direction: rtl;
   font-size: 13px;
   padding: 9px 13px;
+  text-align: right;
 }
 
 .mover-card h3 span {
@@ -353,7 +355,9 @@ table {
 }
 
 .sector-row strong {
+  direction: rtl;
   font-size: 13px;
+  text-align: right;
 }
 
 .sector-change {
@@ -599,16 +603,23 @@ table {
 }
 
 .event-item {
+  align-items: center;
   border-right: 4px solid var(--blue);
-  padding-right: 84px;
+  display: flex;
+  min-height: 52px;
+  padding: 12px 18px 12px 18px;
+}
+
+.event-date-block {
+  display: flex;
+  flex-direction: column;
+  margin-left: 14px;
+  white-space: nowrap;
 }
 
 .event-date {
   color: var(--blue);
   font-weight: 700;
-  position: absolute;
-  right: 18px;
-  top: 14px;
 }
 
 .event-item strong,
@@ -623,6 +634,31 @@ table {
   display: block;
   font-size: 10px;
   margin-top: 7px;
+}
+
+.event-line {
+  direction: rtl;
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+.event-time {
+  color: var(--blue);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.event-line strong,
+.event-line small {
+  display: inline;
+  font-size: 12px;
+  margin: 0;
+}
+
+.event-line small {
+  color: #666b73;
+  margin-right: 8px;
 }
 
 .news-title {
