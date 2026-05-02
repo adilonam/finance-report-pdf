@@ -59,6 +59,12 @@ table {
   unicode-bidi: normal;
 }
 
+/* Million prefix م must stay to the visual left of digits inside RTL (mixed Arabic + numerals). */
+.million-run {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 .up {
   color: var(--green);
   font-weight: 700;
@@ -464,6 +470,7 @@ table {
   color: #ffffff;
   display: inline-block;
   direction: ltr;
+  unicode-bidi: isolate;
   font-size: 11px;
   font-weight: 700;
   min-width: 52px;
@@ -498,6 +505,19 @@ table {
 .trades-table th {
   background: #f1eef2;
   color: var(--blue);
+}
+
+.major-trade-listing-row td {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+  padding-top: 10px;
+  padding-bottom: 8px;
+  text-align: center;
+}
+
+.major-trade-listing-label .ticker {
+  margin-inline-end: 8px;
 }
 
 .trade-type {
@@ -561,6 +581,16 @@ table {
   color: var(--green);
   font-size: 10px;
   margin-bottom: 4px;
+}
+
+.earnings-growth.earnings-down {
+  color: var(--red);
+}
+
+.earnings-item-first strong {
+  background: #e8f4fc;
+  border-radius: 4px;
+  padding: 2px 6px;
 }
 
 .earnings-bar {
@@ -661,8 +691,12 @@ table {
   margin-right: 8px;
 }
 
+.report-page.page-break.news-events-page {
+  padding-top: 0;
+}
+
 .news-title {
-  margin-top: 22px;
+  margin-top: 0;
 }
 
 .news-item {

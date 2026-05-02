@@ -17,6 +17,9 @@ TOP5_URL_TEMPLATE = "https://www.qe.com.qa/wp/trading_report_data/{year}/{month}
 INDICES_SUMMARY_URL_TEMPLATE = "https://www.qe.com.qa/wp/trading_report_data/{year}/{month}/{day}/IndicesSummary.txt"
 INVESTOR_ACTIVITY_URL_TEMPLATE = "https://www.qe.com.qa/wp/trading_report_data/{year}/{month}/{day}/InvestorActivity.txt"
 MAJOR_ACTIVITY_URL_TEMPLATE = "https://www.qe.com.qa/wp/trading_report_data/{year}/{month}/{day}/MajorActivity.txt"
+INSIDER_TRADES_URL_TEMPLATE = (
+    "https://www.qe.com.qa/wp/trading_report_data/{year}/{month}/{day}/InsiderTrades.txt"
+)
 EVENTS_URL = "https://www.qe.com.qa/wp/mw_app/mw.php"
 MORE_INFORMATION_SEARCH_URL = "https://www.qe.com.qa/ar/moreinformationsearch"
 COMPANY_MORE_INFORMATION_SEARCH_URL = (
@@ -41,6 +44,8 @@ TOP_MOVERS_TABLE = "top_movers"
 SECTOR_PERFORMANCE_TABLE = "sector_performance"
 INVESTOR_ACTIVITY_TABLE = "investor_activity"
 MAJOR_ACTIVITY_TABLE = "major_activity"
+INSIDER_TRADES_TABLE = "insider_trades"
+EARNINGS_QUARTERS_TABLE = "earnings_quarters"
 UPCOMING_EVENTS_TABLE = "upcoming_events"
 EXCHANGE_NEWS_TABLE = "exchange_news"
 COMPANY_NEWS_TABLE = "company_news"
@@ -51,6 +56,7 @@ ALL_TABLES = [
     SECTOR_PERFORMANCE_TABLE,
     INVESTOR_ACTIVITY_TABLE,
     MAJOR_ACTIVITY_TABLE,
+    INSIDER_TRADES_TABLE,
     UPCOMING_EVENTS_TABLE,
     EXCHANGE_NEWS_TABLE,
     COMPANY_NEWS_TABLE,
@@ -151,6 +157,19 @@ def fetch_major_activity(
 ) -> tuple[str, list[dict]]:
     current_date = as_of_date or date.today()
     url = _dated_feed_url(MAJOR_ACTIVITY_URL_TEMPLATE, current_date)
+    response = requests.get(url, timeout=20)
+    if response.status_code == 404:
+        return current_date.isoformat(), []
+
+    response.raise_for_status()
+    return current_date.isoformat(), _parse_top5_response(response.content)
+
+
+def fetch_insider_trades(
+    as_of_date: date | None = None,
+) -> tuple[str, list[dict]]:
+    current_date = as_of_date or date.today()
+    url = _dated_feed_url(INSIDER_TRADES_URL_TEMPLATE, current_date)
     response = requests.get(url, timeout=20)
     if response.status_code == 404:
         return current_date.isoformat(), []
@@ -540,6 +559,30 @@ def _connect() -> sqlite3.Connection:
     )
     connection.execute(
         """
+        CREATE TABLE IF NOT EXISTS insider_trades (
+            report_date TEXT NOT NULL,
+            sort_order INTEGER NOT NULL,
+            symbol_code TEXT NOT NULL,
+            symbol_name TEXT NOT NULL,
+            insider_name TEXT NOT NULL,
+            trade_side TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            PRIMARY KEY (report_date, sort_order)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS earnings_quarters (
+            sort_order INTEGER NOT NULL,
+            label TEXT NOT NULL,
+            price REAL NOT NULL,
+            PRIMARY KEY (sort_order)
+        )
+        """
+    )
+    connection.execute(
+        """
         CREATE TABLE IF NOT EXISTS upcoming_events (
             event_date TEXT NOT NULL,
             news_id TEXT NOT NULL,
@@ -823,6 +866,77 @@ def save_major_activity(report_date: str, rows: list[dict]) -> int:
     return len(clean_rows)
 
 
+def save_insider_trades(report_date: str, rows: list[dict]) -> int:
+    clean_rows: list[tuple[str, int, str, str, str, str, int]] = []
+    sort_order = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+
+        symbol_code = str(row.get("SYMBOL_CODE", "")).strip()
+        if not symbol_code:
+            continue
+
+        symbol_name = str(
+            row.get("SYMBOL_NAME")
+            or row.get("SYMBOL_NAME_2")
+            or row.get("SYMBOL_NAME_3")
+            or row.get("SYMBOL_NAME_4")
+            or symbol_code
+        ).strip()
+        insider_name = str(row.get("NIN_NAME", "")).strip()
+        if not insider_name:
+            continue
+
+        buy = row.get("BUY")
+        sell = row.get("SELL")
+        if buy is not None:
+            clean_rows.append(
+                (
+                    report_date,
+                    sort_order,
+                    symbol_code,
+                    symbol_name,
+                    insider_name,
+                    "buy",
+                    int(buy),
+                )
+            )
+            sort_order += 1
+        if sell is not None:
+            clean_rows.append(
+                (
+                    report_date,
+                    sort_order,
+                    symbol_code,
+                    symbol_name,
+                    insider_name,
+                    "sell",
+                    int(sell),
+                )
+            )
+            sort_order += 1
+
+    with _connect() as connection:
+        connection.execute(f"DELETE FROM {INSIDER_TRADES_TABLE}")
+        connection.executemany(
+            f"""
+            INSERT INTO {INSIDER_TRADES_TABLE} (
+                report_date,
+                sort_order,
+                symbol_code,
+                symbol_name,
+                insider_name,
+                trade_side,
+                quantity
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            clean_rows,
+        )
+    return len(clean_rows)
+
+
 def save_upcoming_events(report_date: str, rows: list[dict]) -> int:
     clean_rows = []
     sort_order = 0
@@ -908,6 +1022,12 @@ def run_update_jobs(as_of_date: date | None = None) -> dict:
         major_activity_rows,
     )
 
+    insider_trades_date, insider_trades_rows = fetch_insider_trades(report_date)
+    insider_trades_count = save_insider_trades(
+        insider_trades_date,
+        insider_trades_rows,
+    )
+
     events_date, event_rows = fetch_upcoming_events(report_date)
     events_count = save_upcoming_events(events_date, event_rows)
 
@@ -940,6 +1060,9 @@ def run_update_jobs(as_of_date: date | None = None) -> dict:
         "major_activity_rows": major_activity_count,
         "major_activity_date": major_activity_date,
         "major_activity_table": MAJOR_ACTIVITY_TABLE,
+        "insider_trades_rows": insider_trades_count,
+        "insider_trades_date": insider_trades_date,
+        "insider_trades_table": INSIDER_TRADES_TABLE,
         "upcoming_events_rows": events_count,
         "upcoming_events_date": events_date,
         "upcoming_events_table": UPCOMING_EVENTS_TABLE,
@@ -964,7 +1087,7 @@ def _build_run_job_log_lines(result: dict) -> list[str]:
         "Run Job completed successfully.",
         f"Database: {result['database_path']}",
         f"Requested report date: {result['requested_report_date']}",
-        "APIs processed: 9",
+        "APIs processed: 10",
         "",
         "[1] Market Index API - Index.txt",
         f"Data date: {result['market_index_date'] or 'N/A'}",
@@ -998,16 +1121,21 @@ def _build_run_job_log_lines(result: dict) -> list[str]:
         f"Rows added: {result['major_activity_rows']}",
         f"Table affected: {result['major_activity_table']}",
         "",
-        "[7] Upcoming Events API - mw.php f=Events",
+        "[7] Insider Trades API - InsiderTrades.txt",
+        f"Data date: {result['insider_trades_date'] or 'N/A'}",
+        f"Rows added: {result['insider_trades_rows']}",
+        f"Table affected: {result['insider_trades_table']}",
+        "",
+        "[8] Upcoming Events API - mw.php f=Events",
         f"Data date: {result['upcoming_events_date'] or 'N/A'}",
         f"Rows added: {result['upcoming_events_rows']}",
         f"Table affected: {result['upcoming_events_table']}",
         "",
-        "[8] Exchange News - moreinformationsearch (outputXML)",
+        "[9] Exchange News - moreinformationsearch (outputXML)",
         f"Rows added: {result['exchange_news_rows']}",
         f"Table affected: {result['exchange_news_table']}",
         "",
-        "[9] Company News - companymoreinformationsearch (outputXML)",
+        "[10] Company News - companymoreinformationsearch (outputXML)",
         f"Rows added: {result['company_news_rows']}",
         f"Table affected: {result['company_news_table']}",
     ]
@@ -1121,8 +1249,8 @@ def _build_market_summary(market_index: dict) -> dict:
         "index_value": f"{last_price:,.2f}",
         "index_change_points": f"{_format_signed_decimal(change)} ({_format_signed_fixed(percent_change, 2)}%)",
         "index_change_class": direction_class,
-        "traded_value": f"م {traded_value / 1_000_000:.1f} ر.ق",
-        "traded_volume": f"م {traded_volume / 1_000_000:.1f} سهم",
+        "traded_value": f"{traded_value / 1_000_000:.1f} م ر.ق",
+        "traded_volume": f"{traded_volume / 1_000_000:.1f} م سهم",
         "commentary": (
             f"أغلق مؤشر QE {direction_text} عند {last_price:,.2f} "
             f"بتغيير {_format_signed_decimal(change)} نقطة "
@@ -1286,6 +1414,7 @@ def load_investor_flow(as_of_date: date | None = None) -> list[dict]:
 
 
 def load_major_trades(as_of_date: date | None = None) -> list[dict]:
+    """Major trades grouped by listing (symbol): one block per company on the exchange."""
     if not DATABASE_PATH.exists():
         return []
 
@@ -1296,6 +1425,7 @@ def load_major_trades(as_of_date: date | None = None) -> list[dict]:
             f"""
             SELECT
                 symbol_code,
+                symbol_name,
                 investor_name,
                 trade_type,
                 quantity,
@@ -1308,19 +1438,120 @@ def load_major_trades(as_of_date: date | None = None) -> list[dict]:
         )
         rows = cursor.fetchall()
 
+    groups_by_symbol: dict[str, dict] = {}
+    group_order: list[str] = []
+
+    for symbol_code, symbol_name, investor_name, trade_type, quantity, market_pct in rows:
+        if symbol_code not in groups_by_symbol:
+            groups_by_symbol[symbol_code] = {
+                "symbol": symbol_code,
+                "company": symbol_name,
+                "rows": [],
+            }
+            group_order.append(symbol_code)
+
+        groups_by_symbol[symbol_code]["rows"].append(
+            {
+                "investor_type": investor_name,
+                "trade_type": "شراء" if trade_type == "buy" else "بيع",
+                "type_class": trade_type,
+                "quantity": f"{quantity:,}",
+                "avg_price": "–",
+                "value": "–",
+                "market_pct": f"{market_pct:.2f}%",
+            }
+        )
+
+    return [groups_by_symbol[s] for s in group_order]
+
+
+def load_insider_trades(as_of_date: date | None = None) -> list[dict]:
+    if not DATABASE_PATH.exists():
+        return []
+
+    where_clause = "WHERE report_date = ?" if as_of_date else ""
+    parameters = (as_of_date.isoformat(),) if as_of_date else ()
+    with _connect() as connection:
+        cursor = connection.execute(
+            f"""
+            SELECT symbol_code, symbol_name, insider_name, trade_side, quantity
+            FROM insider_trades
+            {where_clause}
+            ORDER BY sort_order ASC
+            """,
+            parameters,
+        )
+        rows = cursor.fetchall()
+
     return [
         {
             "symbol": symbol_code,
-            "investor_type": investor_name,
-            "trade_type": "شراء" if trade_type == "buy" else "بيع",
-            "type_class": trade_type,
+            "company": symbol_name,
+            "insider": insider_name,
+            "trade_type": "شراء" if trade_side == "buy" else "بيع",
+            "type_class": trade_side,
             "quantity": f"{quantity:,}",
-            "avg_price": "–",
-            "value": "–",
-            "market_pct": f"{market_pct:.2f}%",
         }
-        for symbol_code, investor_name, trade_type, quantity, market_pct in rows
+        for symbol_code, symbol_name, insider_name, trade_side, quantity in rows
     ]
+
+
+def parse_earnings_quarter_lines(text: str) -> list[tuple[str, float]]:
+    rows: list[tuple[str, float]] = []
+    for line in text.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "," in line:
+            label_part, price_part = line.split(",", 1)
+        elif "\t" in line:
+            label_part, price_part = line.split("\t", 1)
+        else:
+            continue
+        label = label_part.strip()
+        try:
+            price = float(price_part.strip().replace(",", "").replace("٬", ""))
+        except ValueError:
+            continue
+        if label:
+            rows.append((label, price))
+    return rows
+
+
+def save_earnings_quarters(rows: list[tuple[str, float]]) -> int:
+    with _connect() as connection:
+        connection.execute(f"DELETE FROM {EARNINGS_QUARTERS_TABLE}")
+        if not rows:
+            return 0
+        connection.executemany(
+            f"""
+            INSERT INTO {EARNINGS_QUARTERS_TABLE} (sort_order, label, price)
+            VALUES (?, ?, ?)
+            """,
+            [
+                (index, label, float(price))
+                for index, (label, price) in enumerate(rows)
+            ],
+        )
+    return len(rows)
+
+
+def load_earnings_quarters() -> list[dict]:
+    if not DATABASE_PATH.exists():
+        return []
+
+    with _connect() as connection:
+        cursor = connection.execute(
+            f"""
+            SELECT label, price
+            FROM {EARNINGS_QUARTERS_TABLE}
+            ORDER BY sort_order ASC
+            """
+        )
+        return [
+            {"label": str(label), "price": float(price)}
+            for label, price in cursor.fetchall()
+        ]
 
 
 def load_upcoming_events(as_of_date: date | None = None) -> list[dict]:
@@ -1440,7 +1671,7 @@ def _format_pct(value: float, signed: bool = False) -> str:
 
 
 def _format_millions(value: float) -> str:
-    return f"م{value / 1_000_000:.1f}"
+    return f"{value / 1_000_000:.1f} م"
 
 
 def _format_net_millions(value: float) -> str:
@@ -1448,7 +1679,7 @@ def _format_net_millions(value: float) -> str:
         return "لا يوجد"
 
     sign = "+" if value > 0 else "-"
-    return f"{sign}م{abs(value) / 1_000_000:.2f}"
+    return f"{sign}{abs(value) / 1_000_000:.2f} م"
 
 
 def _format_arabic_day(value: str) -> str:

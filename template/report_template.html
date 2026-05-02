@@ -20,8 +20,8 @@
       </header>
 
       <div class="kpi-grid">
-        <div class="kpi-card"><strong class="num">{{ market_summary.traded_volume }}</strong><span>عدد الأسهم المتداولة</span></div>
-        <div class="kpi-card"><strong class="num">{{ market_summary.traded_value }}</strong><span>قيمة التداول</span></div>
+        <div class="kpi-card"><strong class="num million-run">{{ market_summary.traded_volume }}</strong><span>عدد الأسهم المتداولة</span></div>
+        <div class="kpi-card"><strong class="num million-run">{{ market_summary.traded_value }}</strong><span>قيمة التداول</span></div>
         <div class="kpi-card"><strong class="num {% if market_summary.index_change_points.startswith('-') %}down{% elif market_summary.index_change_points.startswith('+') %}up{% endif %}">{{ market_summary.index_change_points }}</strong><span>تغيير اليوم</span></div>
         <div class="kpi-card"><strong class="num">{{ market_summary.index_value }}</strong><span>QE مؤشر</span></div>
       </div>
@@ -58,7 +58,7 @@
       <div class="movers-grid">
         <div class="mover-card active">
           <h3>الأكثر نشاطاً <span>●</span></h3>
-          <table><tr><th>الرمز</th><th>السعر</th><th>قيمة التداول</th></tr>{% for r in most_active %}<tr><td class="ticker">{{ r.symbol }}</td><td class="num">{{ r.price }}</td><td class="num">{{ r.value }}</td></tr>{% endfor %}</table>
+          <table><tr><th>الرمز</th><th>السعر</th><th>قيمة التداول</th></tr>{% for r in most_active %}<tr><td class="ticker">{{ r.symbol }}</td><td class="num">{{ r.price }}</td><td class="num million-run">{{ r.value }}</td></tr>{% endfor %}</table>
         </div>
         <div class="mover-card losers">
           <h3>أعلى انخفاضاً <span>▼</span></h3>
@@ -100,9 +100,9 @@
           {% for r in group.rows %}
           <tr>
             <td><span class="net-badge {% if '-' in r.net %}negative{% elif r.net == 'لا يوجد' %}flat{% else %}positive{% endif %}">{{ r.net }}</span></td>
-            <td class="num">{{ r.sell }}</td>
+            <td class="num million-run">{{ r.sell }}</td>
             <td><div class="bar-track"><div class="bar-red" style="width: {{ r.sell_width }}%"></div></div></td>
-            <td class="num">{{ r.buy }}</td>
+            <td class="num million-run">{{ r.buy }}</td>
             <td><div class="bar-track"><div class="bar-green" style="width: {{ r.buy_width }}%"></div></div></td>
             <td class="flow-name">{{ r.nationality }}</td>
           </tr>
@@ -119,29 +119,59 @@
       <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
       {% else %}
       <table class="trades-table">
-        <tr><th>الشركة</th><th>نوع المستثمر</th><th>النوع</th><th>الكمية</th><th>% من السوق</th></tr>
-        {% for r in major_trades %}
-        <tr><td class="ticker">{{ r.symbol }}</td><td>{{ r.investor_type }}</td><td><span class="trade-type {{ r.type_class }}">{{ r.trade_type }}</span></td><td class="num">{{ r.quantity }}</td><td class="num {% if r.type_class == 'buy' %}up{% else %}down{% endif %}">{{ r.market_pct }}</td></tr>
+        <tr><th>نوع المستثمر</th><th>النوع</th><th>الكمية</th><th>% من السوق</th></tr>
+        {% for g in major_trades %}
+        <tr class="major-trade-listing-row"><td colspan="4" class="major-trade-listing-label"><span class="ticker">{{ g.symbol }}</span> {{ g.company }}</td></tr>
+        {% for r in g.rows %}
+        <tr><td>{{ r.investor_type }}</td><td><span class="trade-type {{ r.type_class }}">{{ r.trade_type }}</span></td><td class="num">{{ r.quantity }}</td><td class="num {% if r.type_class == 'buy' %}up{% else %}down{% endif %}">{{ r.market_pct }}</td></tr>
+        {% endfor %}
         {% endfor %}
       </table>
       {% endif %}
 
-      <h2 class="section-title earnings-title">{{ earnings_highlight.company }}</h2>
+      <h2 class="section-title">تداولات المطلعين</h2>
+      {% if not has_insider_trades %}
+      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+      {% else %}
+      <table class="trades-table">
+        <tr><th>الرمز</th><th>الشركة</th><th>المطلع</th><th>النوع</th><th>الكمية</th></tr>
+        {% for r in insider_trades %}
+        <tr><td class="ticker">{{ r.symbol }}</td><td>{{ r.company }}</td><td>{{ r.insider }}</td><td><span class="trade-type {{ r.type_class }}">{{ r.trade_type }}</span></td><td class="num">{{ r.quantity }}</td></tr>
+        {% endfor %}
+      </table>
+      {% endif %}
+    </section>
+
+    {% if has_earnings %}
+    <section class="report-page page-break earnings-page">
+      <h2 class="section-title earnings-title">إفصاح بنك قطر الإسلامي QIB – مقارنة الأرباح الفصلية</h2>
       <div class="earnings-chart">
-        <div class="earnings-axis"><span>ر.4,800</span><span>ر.4,600</span><span>ر.4,400</span><span>ر.4,200</span><span>ر.4,000</span><span>ر.3,800</span><span>ر.3,600</span><span>ر.3,400</span></div>
-        <div class="earnings-bars">
+        <div class="earnings-axis">{% for y in earnings_highlight.y_axis %}<span>{{ y }}</span>{% endfor %}</div>
+        <div class="earnings-bars" style="grid-template-columns: repeat({{ earnings_highlight.points|length }}, minmax(0, 1fr));">
           {% for p in earnings_highlight.points %}
-          <div class="earnings-item">
-            <span class="earnings-growth num">{{ p.growth }}</span>
-            <div class="earnings-bar shade-{{ loop.index }}" style="height: {{ p.height }}px"></div>
+          <div class="earnings-item{% if loop.first %} earnings-item-first{% endif %}">
+            <span class="earnings-growth num{% if p.growth_class %} {{ p.growth_class }}{% endif %}">{{ p.growth }}</span>
+            <div class="earnings-bar shade-{{ p.shade_index }}" style="height: {{ p.height }}px"></div>
             <strong class="num">{{ p.label }}</strong>
           </div>
           {% endfor %}
         </div>
       </div>
     </section>
+    {% endif %}
 
-    <section class="report-page page-break">
+    <section class="report-page page-break news-events-page">
+      <h2 class="section-title news-title">أبرز الأخبار</h2>
+      {% if not has_news_highlights %}
+      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+      {% else %}
+      <div class="news-list">
+        {% for n in news_highlights %}
+        <div class="news-item"><span class="news-pill {{ n.tone }}">{{ n.label }}</span><strong>{{ n.text }}</strong><small>{{ n.tag }}</small></div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       <h2 class="section-title">الفعاليات والمواعيد القادمة</h2>
       {% if not has_upcoming_events %}
       <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
@@ -158,17 +188,6 @@
             <small>{{ e.detail }}</small>
           </div>
         </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <h2 class="section-title news-title">أبرز الأخبار</h2>
-      {% if not has_news_highlights %}
-      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
-      {% else %}
-      <div class="news-list">
-        {% for n in news_highlights %}
-        <div class="news-item"><span class="news-pill {{ n.tone }}">{{ n.label }}</span><strong>{{ n.text }}</strong><small>{{ n.tag }}</small></div>
         {% endfor %}
       </div>
       {% endif %}

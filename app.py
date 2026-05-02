@@ -6,6 +6,7 @@ from services.api_data_service import run_update_jobs
 from services.report_data_service import get_qse_daily_report_data
 from services.pdf_service import browser_html_to_pdf_bytes
 from services.template_service import render_html_template
+from ui.earnings_editor import show_earnings_editor
 from ui.pdf_controls import show_pdf_actions
 
 
@@ -14,7 +15,14 @@ st.title("QSE Daily Report")
 st.caption("HTML report source and browser PDF export.")
 
 TEMPLATE_PATH = Path("template/report_template.html")
-selected_report_date = st.date_input("Report date", value=date.today())
+today = date.today()
+selected_report_date = st.date_input(
+    "Report date",
+    value=today,
+    max_value=today,
+)
+
+show_earnings_editor()
 
 if st.button("Run Job"):
     try:
