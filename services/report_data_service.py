@@ -8,6 +8,7 @@ from services.api_data_service import (
     load_earnings_quarters,
     load_investor_flow,
     load_insider_trades,
+    load_listed_companies,
     load_major_trades,
     load_market_last_update,
     load_market_summary,
@@ -16,6 +17,7 @@ from services.api_data_service import (
     load_top_movers,
     load_upcoming_events,
 )
+from services.openai_news_summary import attach_ai_summaries_to_news_rows
 
 _EARNINGS_MAX_BAR_PX = 170
 _EARNINGS_AXIS_TICKS = 8
@@ -86,6 +88,25 @@ def _build_earnings_highlight(rows: list[dict]) -> dict | None:
     return {"points": points, "y_axis": y_axis}
 
 
+def _listed_company_map() -> dict[str, str]:
+    rows = load_listed_companies()
+    return {
+        str(r["symbol"]).strip().upper(): str(r["company_name"]).strip()
+        for r in rows
+        if str(r.get("symbol", "")).strip()
+    }
+
+
+def _with_company_label(rows: list[dict], symbol_to_company: dict[str, str]) -> list[dict]:
+    out: list[dict] = []
+    for r in rows:
+        item = dict(r)
+        sym = str(item.get("symbol", "")).strip()
+        item["company"] = symbol_to_company.get(sym.upper(), sym) if sym else ""
+        out.append(item)
+    return out
+
+
 def _attach_sector_bar_widths(sectors: list) -> list:
     max_abs = max((abs(_to_float_pct(s["change"])) for s in sectors), default=1.0) or 1.0
     for s in sectors:
@@ -95,7 +116,11 @@ def _attach_sector_bar_widths(sectors: list) -> list:
     return sectors
 
 
-def get_qse_daily_report_data(report_date: date | None = None) -> dict:
+def get_qse_daily_report_data(
+    report_date: date | None = None,
+    *,
+    openai_api_key: str | None = None,
+) -> dict:
     sectors = _attach_sector_bar_widths(load_sector_performance(report_date))
     market_summary = {
         "index_value": "10,482.3",
@@ -112,12 +137,22 @@ def get_qse_daily_report_data(report_date: date | None = None) -> dict:
         or "15 April 2026"
     )
     top_movers = load_top_movers(report_date)
+    sym_company = _listed_company_map()
+    top_gainers = _with_company_label(top_movers.get("top_gainers", []), sym_company)
+    top_losers = _with_company_label(top_movers.get("top_losers", []), sym_company)
+    most_active = _with_company_label(top_movers.get("most_active", []), sym_company)
     investor_flow = load_investor_flow(report_date)
     major_trades = load_major_trades(report_date)
-    insider_trades = load_insider_trades(report_date)
+    insider_trades = _with_company_label(load_insider_trades(report_date), sym_company)
     upcoming_events = load_upcoming_events(report_date)
-    news_highlights = load_news_highlights() + load_company_news_highlights()
-
+    news_bourse = load_news_highlights(as_of_date=report_date)
+    news_companies = load_company_news_highlights(as_of_date=report_date)
+    news_bourse = attach_ai_summaries_to_news_rows(
+        news_bourse, api_key=openai_api_key, kind="exchange"
+    )
+    news_companies = attach_ai_summaries_to_news_rows(
+        news_companies, api_key=openai_api_key, kind="company"
+    )
     earnings_rows = load_earnings_quarters()
     earnings_highlight = _build_earnings_highlight(earnings_rows)
 
@@ -131,9 +166,9 @@ def get_qse_daily_report_data(report_date: date | None = None) -> dict:
         },
         "market_summary": market_summary,
         "market_chart": build_market_chart(),
-        "top_gainers": top_movers.get("top_gainers", []),
-        "top_losers": top_movers.get("top_losers", []),
-        "most_active": top_movers.get("most_active", []),
+        "top_gainers": top_gainers,
+        "top_losers": top_losers,
+        "most_active": most_active,
         "has_top_movers": any(top_movers.values()),
         "sector_performance": sectors,
         "has_sector_performance": bool(sectors),
@@ -147,8 +182,11 @@ def get_qse_daily_report_data(report_date: date | None = None) -> dict:
         "has_earnings": earnings_highlight is not None,
         "upcoming_events": upcoming_events,
         "has_upcoming_events": bool(upcoming_events),
-        "news_highlights": news_highlights,
-        "has_news_highlights": bool(news_highlights),
+        "news_bourse": news_bourse,
+        "news_companies": news_companies,
+        "has_news_bourse": bool(news_bourse),
+        "has_news_companies": bool(news_companies),
+        "has_news_highlights": bool(news_bourse or news_companies),
         "disclaimer": "شركة قطر للأوراق المالية · Qatar Securities Co. (P.Q.S.C) · للأغراض المعلوماتية فقط · لا تُعد هذه التقرير توصية استثمارية · 15 أبريل 2026",
     }
 

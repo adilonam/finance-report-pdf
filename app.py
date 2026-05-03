@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date
 from pathlib import Path
 
@@ -16,6 +18,19 @@ st.title("QSE Daily Report")
 st.caption("HTML report source and browser PDF export.")
 
 TEMPLATE_PATH = Path("template/report_template.html")
+
+
+def _streamlit_openai_api_key() -> str | None:
+    try:
+        secrets = st.secrets
+    except Exception:
+        return None
+    if "openai" in secrets and "api_key" in secrets["openai"]:
+        key = secrets["openai"]["api_key"]
+        return str(key).strip() or None
+    return None
+
+
 today = date.today()
 selected_report_date = st.date_input(
     "Report date",
@@ -56,7 +71,23 @@ with st.expander("HTML Code", expanded=False):
 
 if st.button("Generate PDF with Browser"):
     try:
-        pdf_bytes = browser_html_to_pdf_bytes(preview_html, base_dir=str(TEMPLATE_PATH.parent))
+        api_key = _streamlit_openai_api_key()
+        spinner_message = (
+            "Summarizing news with OpenAI, then building PDF..."
+            if api_key
+            else "Building PDF..."
+        )
+        with st.spinner(spinner_message):
+            pdf_html = render_html_template(
+                str(TEMPLATE_PATH),
+                get_qse_daily_report_data(
+                    selected_report_date,
+                    openai_api_key=api_key,
+                ),
+            )
+            pdf_bytes = browser_html_to_pdf_bytes(
+                pdf_html, base_dir=str(TEMPLATE_PATH.parent)
+            )
         st.success("PDF generated.")
         show_pdf_actions(pdf_bytes, file_name="qse-daily-report-browser.pdf")
     except ValueError as error:

@@ -58,15 +58,15 @@
       <div class="movers-grid">
         <div class="mover-card active">
           <h3>الأكثر نشاطاً <span>●</span></h3>
-          <table><tr><th>الرمز</th><th>السعر</th><th>قيمة التداول</th></tr>{% for r in most_active %}<tr><td class="ticker">{{ r.symbol }}</td><td class="num">{{ r.price }}</td><td class="num million-run">{{ r.value }}</td></tr>{% endfor %}</table>
+          <table><tr><th>الشركة</th><th>السعر</th><th>قيمة التداول</th></tr>{% for r in most_active %}<tr><td class="ticker">{{ r.company }}</td><td class="num">{{ r.price }}</td><td class="num million-run">{{ r.value }}</td></tr>{% endfor %}</table>
         </div>
         <div class="mover-card losers">
           <h3>أعلى انخفاضاً <span>▼</span></h3>
-          <table><tr><th>الرمز</th><th>السعر</th><th>التغير</th></tr>{% for r in top_losers %}<tr><td class="ticker">{{ r.symbol }}</td><td class="num">{{ r.price }}</td><td class="num down">{{ r.change }}</td></tr>{% endfor %}</table>
+          <table><tr><th>الشركة</th><th>السعر</th><th>التغير</th></tr>{% for r in top_losers %}<tr><td class="ticker">{{ r.company }}</td><td class="num">{{ r.price }}</td><td class="num down">{{ r.change }}</td></tr>{% endfor %}</table>
         </div>
         <div class="mover-card gainers">
           <h3>أعلى ارتفاعاً <span>▲</span></h3>
-          <table><tr><th>الرمز</th><th>السعر</th><th>التغير</th></tr>{% for r in top_gainers %}<tr><td class="ticker">{{ r.symbol }}</td><td class="num">{{ r.price }}</td><td class="num up">{{ r.change }}</td></tr>{% endfor %}</table>
+          <table><tr><th>الشركة</th><th>السعر</th><th>التغير</th></tr>{% for r in top_gainers %}<tr><td class="ticker">{{ r.company }}</td><td class="num">{{ r.price }}</td><td class="num up">{{ r.change }}</td></tr>{% endfor %}</table>
         </div>
       </div>
       {% endif %}
@@ -134,9 +134,9 @@
       <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
       {% else %}
       <table class="trades-table">
-        <tr><th>الرمز</th><th>الشركة</th><th>المطلع</th><th>النوع</th><th>الكمية</th></tr>
+        <tr><th>الشركة</th><th>المطلع</th><th>النوع</th><th>الكمية</th></tr>
         {% for r in insider_trades %}
-        <tr><td class="ticker">{{ r.symbol }}</td><td>{{ r.company }}</td><td>{{ r.insider }}</td><td><span class="trade-type {{ r.type_class }}">{{ r.trade_type }}</span></td><td class="num">{{ r.quantity }}</td></tr>
+        <tr><td class="ticker">{{ r.company }}</td><td>{{ r.insider }}</td><td><span class="trade-type {{ r.type_class }}">{{ r.trade_type }}</span></td><td class="num">{{ r.quantity }}</td></tr>
         {% endfor %}
       </table>
       {% endif %}
@@ -160,39 +160,83 @@
     </section>
     {% endif %}
 
-    <section class="report-page page-break news-events-page">
-      <h2 class="section-title news-title">أبرز الأخبار</h2>
-      {% if not has_news_highlights %}
-      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
-      {% else %}
-      <div class="news-list">
-        {% for n in news_highlights %}
-        <div class="news-item"><span class="news-pill {{ n.tone }}">{{ n.label }}</span><strong>{{ n.text }}</strong><small>{{ n.tag }}</small></div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <h2 class="section-title">الفعاليات والمواعيد القادمة</h2>
-      {% if not has_upcoming_events %}
-      <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
-      {% else %}
-      <div class="event-list">
-        {% for e in upcoming_events %}
-        <div class="event-item">
-          <div class="event-date-block">
-            <span class="event-date">{{ e.day }} {{ e.month }}</span>
-            <span class="event-time num">{{ e.time }}</span>
-          </div>
-          <div class="event-line">
-            <strong>{{ e.company }}</strong>
-            <small>{{ e.detail }}</small>
+    {% if has_news_bourse or has_news_companies %}
+    <section class="report-page page-break news-dedicated-page">
+      <h2 class="section-title news-main-page-title">أخبار</h2>
+      <div class="news-columns{% if has_news_bourse and has_news_companies %} news-columns--two-cols{% endif %}">
+        {% if has_news_bourse %}
+        <div class="news-col">
+          <h3 class="news-col-title">البورصة</h3>
+          <div class="event-list">
+            {% for n in news_bourse %}
+            <div class="event-item news-highlight-row">
+              {% if n.date_display %}
+              <div class="event-date-block">
+                <span class="event-date">{{ n.date_display }}</span>
+              </div>
+              {% endif %}
+              <div class="event-line">
+                <strong>{{ n.ai_headline or n.headline }}</strong>
+                {% set news_body = n.ai_summary or n.source_summary %}
+                {% if news_body %}
+                <p class="news-ai-summary">{{ news_body }}</p>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
           </div>
         </div>
-        {% endfor %}
+        {% endif %}
+        {% if has_news_companies %}
+        <div class="news-col">
+          <h3 class="news-col-title">الشركات</h3>
+          <div class="event-list">
+            {% for n in news_companies %}
+            <div class="event-item news-highlight-row">
+              {% if n.date_display %}
+              <div class="event-date-block">
+                <span class="event-date">{{ n.date_display }}</span>
+              </div>
+              {% endif %}
+              <div class="event-line">
+                <strong>{{ n.ai_headline or n.headline }}</strong>
+                {% set news_body = n.ai_summary or n.source_summary %}
+                {% if news_body %}
+                <p class="news-ai-summary">{{ news_body }}</p>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
+    </section>
+    {% endif %}
 
-      <footer>{{ disclaimer }}</footer>
+    <section class="report-page page-break news-events-page last-report-page">
+      <div class="last-page-main">
+        <h2 class="section-title">الفعاليات والمواعيد القادمة</h2>
+        {% if not has_upcoming_events %}
+        <div class="no-data-message">لا توجد معلومات لهذا التاريخ!</div>
+        {% else %}
+        <div class="event-list">
+          {% for e in upcoming_events %}
+          <div class="event-item">
+            <div class="event-date-block">
+              <span class="event-date">{{ e.day }} {{ e.month }}</span>
+              <span class="event-time num">{{ e.time }}</span>
+            </div>
+            <div class="event-line">
+              <strong>{{ e.company }}</strong>
+              <small>{{ e.detail }}</small>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <footer class="report-footer">{{ disclaimer }}</footer>
     </section>
   </body>
 </html>

@@ -33,7 +33,7 @@ OUTPUT_XML_JS_PATTERN_DQ = re.compile(
     r'var\s+outputXML\s*=\s*"([^"]*)"',
     re.IGNORECASE | re.DOTALL,
 )
-NEWS_HIGHLIGHTS_LIMIT = 4
+NEWS_HIGHLIGHTS_LIMIT = 5
 DATABASE_DIR = Path("database")
 DATABASE_PATH = DATABASE_DIR / "finance_report.sqlite3"
 TOP5_JSON_PREFIX = "for(;;);"
@@ -346,67 +346,85 @@ def save_company_news(rows: list[dict]) -> int:
     return len(clean_rows)
 
 
-def load_news_highlights(limit: int = NEWS_HIGHLIGHTS_LIMIT) -> list[dict]:
-    return _load_news_rows_for_template(
-        EXCHANGE_NEWS_TABLE,
-        "أخبار البورصة",
-        "QSE",
-        limit,
-    )
+def load_news_highlights(
+    limit: int = NEWS_HIGHLIGHTS_LIMIT,
+    *,
+    as_of_date: date | None = None,
+) -> list[dict]:
+    return _load_news_rows_for_template(EXCHANGE_NEWS_TABLE, limit, as_of_date=as_of_date)
 
 
-def load_company_news_highlights(limit: int = NEWS_HIGHLIGHTS_LIMIT) -> list[dict]:
-    return _load_news_rows_for_template(
-        COMPANY_NEWS_TABLE,
-        "أخبار الشركات",
-        "شركات",
-        limit,
-    )
+def load_company_news_highlights(
+    limit: int = NEWS_HIGHLIGHTS_LIMIT,
+    *,
+    as_of_date: date | None = None,
+) -> list[dict]:
+    return _load_news_rows_for_template(COMPANY_NEWS_TABLE, limit, as_of_date=as_of_date)
+
+
+def _parse_publish_iso_to_datetime(iso_value: str) -> datetime | None:
+    if not iso_value or not str(iso_value).strip():
+        return None
+    cleaned = iso_value.strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(cleaned)
+    except ValueError:
+        return None
 
 
 def _load_news_rows_for_template(
     table_name: str,
-    label_ar: str,
-    tag_brand: str,
     limit: int,
+    *,
+    as_of_date: date | None = None,
 ) -> list[dict]:
     if not DATABASE_PATH.exists():
         return []
 
     with _connect() as connection:
-        cursor = connection.execute(
-            f"""
-            SELECT headline, summary, publish_date
-            FROM {table_name}
-            ORDER BY sort_order ASC
-            LIMIT ?
-            """,
-            (limit,),
-        )
-        db_rows = cursor.fetchall()
+        if as_of_date is None:
+            cursor = connection.execute(
+                f"""
+                SELECT headline, publish_date, summary
+                FROM {table_name}
+                ORDER BY sort_order ASC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            db_rows = cursor.fetchall()
+            picked = db_rows
+        else:
+            cursor = connection.execute(
+                f"""
+                SELECT headline, publish_date, summary
+                FROM {table_name}
+                ORDER BY sort_order ASC
+                """,
+            )
+            db_rows = cursor.fetchall()
+
+    if as_of_date is not None:
+        eligible: list[tuple[str, str, str, datetime]] = []
+        for headline, publish_date, summary in db_rows:
+            dt = _parse_publish_iso_to_datetime(publish_date or "")
+            if dt is None:
+                continue
+            if dt.date() <= as_of_date:
+                eligible.append(
+                    (headline or "", publish_date or "", summary or "", dt),
+                )
+        eligible.sort(key=lambda row: row[3], reverse=True)
+        picked = [(h, pd, s) for h, pd, s, _ in eligible[:limit]]
 
     return [
         {
-            "label": label_ar,
-            "text": headline,
-            "tag": _format_news_highlight_tag(summary, publish_date, tag_brand),
-            "tone": "gray",
+            "headline": (headline or "").strip(),
+            "date_display": _format_arabic_datetime_line(publish_date or ""),
+            "source_summary": (summary or "").strip(),
         }
-        for headline, summary, publish_date in db_rows
+        for headline, publish_date, summary in picked
     ]
-
-
-def _format_news_highlight_tag(
-    summary: str,
-    publish_date_iso: str,
-    brand: str,
-) -> str:
-    date_part = _format_arabic_datetime_line(publish_date_iso)
-    if summary and len(summary) <= 120:
-        return f"{summary} · {date_part}" if date_part else summary
-    if date_part:
-        return f"{brand} · {date_part}"
-    return brand
 
 
 def _format_arabic_datetime_line(iso_value: str) -> str:
@@ -1393,6 +1411,7 @@ def load_investor_flow(as_of_date: date | None = None) -> list[dict]:
                         "net": "لا يوجد",
                         "buy_width": 0,
                         "sell_width": 0,
+                        "_net_value": float("-inf"),
                     }
                 )
                 continue
@@ -1400,16 +1419,22 @@ def load_investor_flow(as_of_date: date | None = None) -> list[dict]:
             totals = values_by_key[(natgrp, invtype)]
             buy_value = totals["Buy"]
             sell_value = totals["Sell"]
+            net_value = buy_value - sell_value
             group_rows.append(
                 {
                     "nationality": NATIONALITY_LABELS[natgrp],
                     "buy": _format_millions(buy_value),
                     "sell": _format_millions(sell_value),
-                    "net": _format_net_millions(buy_value - sell_value),
+                    "net": _format_net_millions(net_value),
                     "buy_width": _bar_width(buy_value, max_value),
                     "sell_width": _bar_width(sell_value, max_value),
+                    "_net_value": net_value,
                 }
             )
+
+        group_rows.sort(key=lambda r: r["_net_value"], reverse=True)
+        for r in group_rows:
+            del r["_net_value"]
 
         if group_rows:
             groups.append(
