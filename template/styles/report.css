@@ -88,6 +88,10 @@ table {
   padding-top: 18px;
 }
 
+.sector-performance-page {
+  padding-top: 0;
+}
+
 .hero {
   align-items: stretch;
   direction: ltr;
@@ -289,6 +293,8 @@ table {
 .mover-card {
   border: 1px solid #dfe1e7;
   border-radius: 7px;
+  /* Isolate from .movers-grid { direction: ltr }: tables must be rtl so cols read الرمز→السعر→التغير. */
+  direction: rtl;
   overflow: hidden;
 }
 

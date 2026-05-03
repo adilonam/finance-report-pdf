@@ -8,6 +8,7 @@ from services.pdf_service import browser_html_to_pdf_bytes
 from services.template_service import render_html_template
 from ui.earnings_editor import show_earnings_editor
 from ui.pdf_controls import show_pdf_actions
+from ui.symbol_company_editor import show_symbol_company_editor
 
 
 st.set_page_config(page_title="HTML Report to PDF", layout="centered")
@@ -22,6 +23,7 @@ selected_report_date = st.date_input(
     max_value=today,
 )
 
+show_symbol_company_editor()
 show_earnings_editor()
 
 if st.button("Run Job"):

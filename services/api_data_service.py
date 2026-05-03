@@ -49,6 +49,7 @@ EARNINGS_QUARTERS_TABLE = "earnings_quarters"
 UPCOMING_EVENTS_TABLE = "upcoming_events"
 EXCHANGE_NEWS_TABLE = "exchange_news"
 COMPANY_NEWS_TABLE = "company_news"
+LISTED_COMPANIES_TABLE = "listed_companies"
 ALL_TABLES = [
     MARKET_INDEX_TABLE,
     QE20_TIME_LEVEL_TABLE,
@@ -578,6 +579,14 @@ def _connect() -> sqlite3.Connection:
             label TEXT NOT NULL,
             price REAL NOT NULL,
             PRIMARY KEY (sort_order)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS listed_companies (
+            symbol TEXT PRIMARY KEY NOT NULL,
+            company_name TEXT NOT NULL
         )
         """
     )
@@ -1551,6 +1560,58 @@ def load_earnings_quarters() -> list[dict]:
         return [
             {"label": str(label), "price": float(price)}
             for label, price in cursor.fetchall()
+        ]
+
+
+def parse_symbol_company_lines(text: str) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    for line in text.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "," in line:
+            symbol_part, name_part = line.split(",", 1)
+        elif "\t" in line:
+            symbol_part, name_part = line.split("\t", 1)
+        else:
+            continue
+        symbol = symbol_part.strip()
+        company_name = name_part.strip()
+        if symbol and company_name:
+            rows.append((symbol, company_name))
+    return rows
+
+
+def save_listed_companies(rows: list[tuple[str, str]]) -> int:
+    with _connect() as connection:
+        connection.execute(f"DELETE FROM {LISTED_COMPANIES_TABLE}")
+        if not rows:
+            return 0
+        connection.executemany(
+            f"""
+            INSERT INTO {LISTED_COMPANIES_TABLE} (symbol, company_name)
+            VALUES (?, ?)
+            """,
+            rows,
+        )
+    return len(rows)
+
+
+def load_listed_companies() -> list[dict]:
+    if not DATABASE_PATH.exists():
+        return []
+
+    with _connect() as connection:
+        cursor = connection.execute(
+            f"""
+            SELECT symbol, company_name
+            FROM {LISTED_COMPANIES_TABLE}
+            ORDER BY symbol ASC
+            """
+        )
+        return [
+            {"symbol": str(sym), "company_name": str(name)}
+            for sym, name in cursor.fetchall()
         ]
 
 
